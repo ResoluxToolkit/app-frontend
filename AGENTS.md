@@ -144,11 +144,16 @@ da sessão.
 `skills/` (e os espelhos em `.agents/skills/` e nos diretórios por-agente)
 guardam skills instaladas com lock de hash em `skills-lock.json`:
 
-- `transitions-dev` — 32 transições CSS prontas (badges, dropdowns, modals,
+- `transitions-dev` — 35 transições CSS prontas (badges, dropdowns, modals,
   toasts, streaming de texto etc.), seletores `t-*` + motion tokens.
 - `transitions-polish` — refinamento de motion contra a escala de tokens
   (duração, distância, easing; assimetria open/close).
 - `libraries-pro` — catálogo de efeitos de UI (via Libraries.dev).
+- `find-skills` — descobrir e instalar skills do ecossistema aberto
+  (CLI `npx skills`).
+- `ios-liquid-glass`, `liquid-glass-design`, `swiftui-liquid-glass` —
+  referências de API e design do Liquid Glass (iOS 26+); servem à engine Swift
+  em `../engine`, mas ficam disponíveis aqui também.
 
 Use essas skills ao adicionar animações/efeitos novos em vez de inventar CSS
 ad-hoc; não edite os arquivos das skills diretamente.

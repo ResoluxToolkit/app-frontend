@@ -1,17 +1,35 @@
 {
   "version": 1,
   "skills": {
-    "libraries-dev": {
-      "source": "Jakubantalik/Libraries.dev",
-      "sourceType": "github",
-      "skillPath": "skills/libraries-dev/SKILL.md",
-      "computedHash": "c8e6571372fee1228d3649a34e008874861086354d3cdebeb725b05d08ce75d1"
+    "find-skills": {
+      "source": "../../../../.agents/skills/find-skills",
+      "sourceType": "local",
+      "computedHash": "913b9d37d0d54047dd65222bb8c67b2bf04e3cb87dcad1729068d7a8b2c8c396"
+    },
+    "ios-liquid-glass": {
+      "source": "../../../../.agents/skills/ios-liquid-glass",
+      "sourceType": "local",
+      "computedHash": "bdce18c48c553dbb9eef850fa24c2814ba243498d7c157abeaf68ddb3fbaaa1e"
+    },
+    "libraries-pro": {
+      "source": "../../../../.agents/skills/libraries-pro",
+      "sourceType": "local",
+      "computedHash": "4ac8f757b8b313eb7c2b26cde55cac7952c248e72803f5d27c62261336fa665c"
+    },
+    "liquid-glass-design": {
+      "source": "../../../../.agents/skills/liquid-glass-design",
+      "sourceType": "local",
+      "computedHash": "bbfb0a30ce18048f07072183d844b005ca729f27784096455ea7f8add25b92d3"
+    },
+    "swiftui-liquid-glass": {
+      "source": "../../../../.agents/skills/swiftui-liquid-glass",
+      "sourceType": "local",
+      "computedHash": "e4d3634171bc6caa7cc8d15f58cd2fb848dab4744493edc56ec14f4b2c8521a0"
     },
     "transitions-dev": {
-      "source": "Jakubantalik/transitions.dev",
-      "sourceType": "github",
-      "skillPath": "skills/transitions-dev/SKILL.md",
-      "computedHash": "bc048bb87050b77807eb8351830856b21e0698d514cd9b2ebe37ac02aca1aaa0"
+      "source": "../../../../.agents/skills/transitions-dev",
+      "sourceType": "local",
+      "computedHash": "c7f9b40c6676ecc6d890db4ffecafa1ddebdb4ebaed3098521928e5115bd871f"
     },
     "transitions-polish": {
       "source": "Jakubantalik/transitions.dev",
