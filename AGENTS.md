@@ -109,6 +109,21 @@ app `3003` / HMR `8083` / Mongo `3004`, longe do daemon (`1980`) e do Arena
 contextos client e server. A suíte atual é smoke-test; ao adicionar lógica
 nova (especialmente em `imports/api`), escreva o teste junto.
 
+## Git e repositório
+
+Antes de qualquer operação de gerenciamento do repositório (`commit`, `push`,
+`pull`, `gh`, criação de PR etc.), carregue a identidade do agente com:
+
+```bash
+set -a; source /Users/luizinho/.spike/resolux-org.env; set +a
+```
+
+O arquivo define `GIT_AUTHOR_NAME`, `GIT_AUTHOR_EMAIL`,
+`GIT_COMMITTER_NAME`, `GIT_COMMITTER_EMAIL`, `GIT_SSH_COMMAND` (chave SSH
+dedicada) e `GH_TOKEN` para o usuário `resolux-org`. Não altere o
+`~/.gitconfig` nem as chaves SSH do operador — use sempre este env no escopo
+da sessão.
+
 ## Segurança
 
 - O daemon aceita só origens locais (`localhost`/`127.0.0.1`/`::1`); não há
