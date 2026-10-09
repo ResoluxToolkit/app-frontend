@@ -1,0 +1,16 @@
+node_modules/
+
+# Estado local do Meteor (pacotes instalados, banco de dev e logs)
+.meteor/local/
+
+# Saída de build do Meteor Modern-Tools
+_build/
+*/build-assets*
+*/build-chunks*
+.rsdoctor/
+
+# Estado e artefatos locais
+.DS_Store
+.env
+.env.*
+!.env.example

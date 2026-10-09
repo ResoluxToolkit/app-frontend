@@ -1,0 +1,531 @@
+<head>
+  <title>Resolux — Assistente</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="dark">
+</head>
+
+<body>
+  {{> app}}
+</body>
+
+<template name="app">
+  <div class="aurora" aria-hidden="true"></div>
+
+  <div class="app">
+    {{> topbar}}
+
+    <div class="app-body {{#unless assistenteAtiva}}app-body-simples{{/unless}}">
+      {{#if assistenteAtiva}}
+        {{> sidebar}}
+        {{> thread}}
+        {{> painelContexto}}
+      {{else if ajustesAtiva}}
+        {{> ajustes}}
+      {{else if monitorAtiva}}
+        {{> monitor}}
+      {{else}}
+        {{> secaoEmBreve}}
+      {{/if}}
+    </div>
+  </div>
+</template>
+
+<template name="topbar">
+  <header class="topbar">
+    <div class="topbar-logo">
+      <span class="logo-dot" aria-hidden="true"></span>
+      Resolux
+    </div>
+
+    <nav class="topbar-nav" aria-label="Seções">
+      <!-- Quick Play fica fora da nav nesta tacada (sem mustaches aqui: o Spacebars parseia comentários) -->
+      <button class="nav-pill {{#if navAtiva 'camera'}}ativa{{/if}}" data-secao="camera">Câmera</button>
+      <button class="nav-pill {{#if navAtiva 'monitor'}}ativa{{/if}}" data-secao="monitor">Monitor</button>
+      <button class="nav-pill {{#if navAtiva 'assistente'}}ativa{{/if}}" data-secao="assistente">Assistente</button>
+      <button class="nav-pill {{#if navAtiva 'starter'}}ativa{{/if}}" data-secao="starter">Starter</button>
+      <button class="nav-pill {{#if navAtiva 'ajustes'}}ativa{{/if}}" data-secao="ajustes">Ajustes</button>
+    </nav>
+
+    <div class="topbar-direita">
+      <div class="dispositivo-pill" title="Origem das respostas do assistente">
+        <span class="dot {{motorClasse}}" aria-hidden="true"></span>
+        {{motorRotulo}}
+      </div>
+      <div class="dispositivo-pill">
+        <span class="dot sucesso" aria-hidden="true"></span>
+        iPhone 15 Pro
+      </div>
+      <div class="avatar" title="Luizinho">L</div>
+    </div>
+  </header>
+</template>
+
+<template name="sidebar">
+  <aside class="sidebar">
+    <button class="btn-nova">
+      <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+        <path d="M8 3v10M3 8h10"/>
+      </svg>
+      Nova conversa
+    </button>
+
+    <div class="secao-titulo">Hoje</div>
+
+    {{#each sessoes}}
+      <button class="sessao {{#if ativa}}ativa{{/if}}">
+        <div class="titulo">{{titulo}}</div>
+        <div class="meta">{{meta}}</div>
+      </button>
+    {{/each}}
+
+    <div class="sidebar-divisor"></div>
+
+    <div class="secao-titulo">Capabilities</div>
+    <div class="chips-cap">
+      <button class="chip">
+        <svg class="icone-info" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <rect x="1.5" y="4" width="9" height="8" rx="2"/>
+          <path d="M10.5 7l4-2.5v7L10.5 9" stroke-linejoin="round"/>
+        </svg>
+        Captura
+      </button>
+      <button class="chip">
+        <svg class="icone-sucesso" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 10L2 14M8 2l6 6-8.5.5L6 10V6z"/>
+        </svg>
+        Compartilhar
+      </button>
+    </div>
+  </aside>
+</template>
+
+<template name="thread">
+  <main class="thread-wrap" id="thread-scroll">
+    <div class="thread">
+      <div class="data-rotulo">Hoje</div>
+
+      {{#each mensagens}}
+        {{#if isUsuario}}
+          {{> mensagemUsuario}}
+        {{else}}
+          {{> mensagemAgente}}
+        {{/if}}
+      {{/each}}
+
+      {{#if trabalhando}}
+        <div class="status-trabalho" role="status">
+          <canvas class="orb-canvas" data-orb="{{estadoOrb}}" data-orb-tamanho="20" width="20" height="20" aria-hidden="true"></canvas>
+          {{rotuloTrabalho}}
+          <span class="rotulo-estado {{estadoOrb}}">{{estadoOrb}}</span>
+        </div>
+      {{/if}}
+
+      <div class="acoes-rapidas">
+        <button class="acao-rapida" data-acao="Verificar câmera">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <rect x="1.5" y="4" width="9" height="8" rx="2"/>
+            <path d="M10.5 7l4-2.5v7L10.5 9" stroke-linejoin="round"/>
+          </svg>
+          Verificar câmera
+        </button>
+        <button class="acao-rapida" data-acao="Status do monitor">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <rect x="1.5" y="2.5" width="13" height="9" rx="1.5"/>
+            <path d="M5.5 14h5" stroke-linecap="round"/>
+          </svg>
+          Status do monitor
+        </button>
+        <button class="acao-rapida" data-acao="Ver atualizações">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 2v9M4.5 7.5L8 11l3.5-3.5M2.5 14h11"/>
+          </svg>
+          Ver atualizações
+        </button>
+      </div>
+
+      <div class="barra-contexto">
+        <span class="rotulo">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+            <rect x="4.5" y="4.5" width="7" height="7" rx="1.5"/>
+            <path d="M6 1.5v3M10 1.5v3M6 11.5v3M10 11.5v3M1.5 6h3M1.5 10h3M11.5 6h3M11.5 10h3" stroke-linecap="round"/>
+          </svg>
+          Contexto
+        </span>
+        <div class="trilho"><div class="preenchimento" style="width: {{contextoPct}}%"></div></div>
+        <span class="pct">{{contextoPct}}%</span>
+        <button class="engrenagem" aria-label="Ajustes de contexto">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="8" cy="8" r="2.2"/>
+            <path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M12.4 3.6l-1.2 1.2M4.8 11.2l-1.2 1.2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    {{> composer}}
+  </main>
+</template>
+
+<template name="mensagemUsuario">
+  <div class="msg-usuario">
+    <span class="autor">LUIZINHO</span>
+    <div class="bolha">{{texto}}</div>
+    <span class="hora">{{hora}}</span>
+  </div>
+</template>
+
+<template name="mensagemAgente">
+  <article class="msg-agente vidro">
+    <header class="cabecalho">
+      <canvas class="orb-canvas" data-orb="{{estadoOrb}}" data-orb-tamanho="20" width="20" height="20"
+              role="img" aria-label="Resolux {{estadoOrb}}"></canvas>
+      <span class="nome">RESOLUX</span>
+      <span class="badge-pro">Pro</span>
+    </header>
+
+    <div class="corpo">{{{corpoHtml}}}</div>
+
+    <footer class="rodape">
+      <span class="meta">{{hora}} · {{tokens}} tokens</span>
+      <div class="acoes">
+        <button class="acao-circ" aria-label="Ramificar conversa" title="Ramificar">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="4" cy="4" r="1.8"/><circle cx="4" cy="12" r="1.8"/><circle cx="12" cy="6" r="1.8"/>
+            <path d="M4 5.8v4.4M4 10c0-2.5 4-1.5 6.2-2.6"/>
+          </svg>
+        </button>
+        <button class="acao-circ" aria-label="Buscar na conversa" title="Buscar">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+            <circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/>
+          </svg>
+        </button>
+        <button class="acao-circ" aria-label="Ouvir resposta" title="Ouvir">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M2.5 6.5v3h2.5L9 13V3L5 6.5H2.5z"/>
+            <path d="M11.5 5.5a3.5 3.5 0 010 5M13.2 4a6 6 0 010 8"/>
+          </svg>
+        </button>
+        <button class="acao-circ copiar" data-texto="{{texto}}" aria-label="Copiar resposta" title="Copiar">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/>
+            <path d="M10.5 3.5v-.5A1.5 1.5 0 009 1.5H4A1.5 1.5 0 002.5 3v5A1.5 1.5 0 004 9.5h.5"/>
+          </svg>
+        </button>
+      </div>
+    </footer>
+  </article>
+</template>
+
+<template name="composer">
+  <div class="composer-zona">
+    <div class="beam-wrap {{#if processando}}beam-ativo{{/if}}">
+      <form class="composer {{#if focado}}focado{{/if}}" id="composer-form">
+        {{#if processando}}
+          <div class="status-processando" role="status">
+            <canvas class="orb-canvas" data-orb="{{estadoOrb}}" data-orb-tamanho="20" width="20" height="20" aria-hidden="true"></canvas>
+            <span>{{rotuloProcessando}}</span>
+          </div>
+          <button type="button" class="btn-enviar parar" id="btn-parar" aria-label="Parar">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+          </button>
+        {{else}}
+          <input type="text" id="composer-input" placeholder="Pergunte ao Resolux ou peça uma ação…"
+                 autocomplete="off" aria-label="Mensagem para o Resolux" value="{{rascunho}}">
+          <button type="button" class="btn-mic {{#if ouvindo}}ouvindo{{/if}}" id="btn-mic"
+                  aria-label="{{#if ouvindo}}Parar ditado{{else}}Ditar por voz{{/if}}" aria-pressed="{{ouvindo}}">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
+              <rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5"/>
+              <path d="M3 7.5a5 5 0 0010 0M8 12.5v2"/>
+            </svg>
+          </button>
+          <button type="submit" class="btn-enviar" aria-label="Enviar">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/>
+            </svg>
+          </button>
+        {{/if}}
+      </form>
+    </div>
+  </div>
+</template>
+
+<template name="painelContexto">
+  <aside class="contexto">
+    <div class="secao-titulo">Contexto ativo</div>
+
+    <div class="card-contexto vidro">
+      <div class="card-titulo">Janela de contexto</div>
+      <div class="trilho"><div class="preenchimento" style="width: {{contextoPct}}%"></div></div>
+      <div class="card-meta">{{contextoPct}}% usado · 18 mil tokens</div>
+    </div>
+
+    <div class="secao-titulo">Fontes</div>
+
+    <button class="fonte-item">
+      <svg class="icone-info" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="1.5" y="4" width="9" height="8" rx="2"/>
+        <path d="M10.5 7l4-2.5v7L10.5 9" stroke-linejoin="round"/>
+      </svg>
+      <span class="nome">Câmera</span>
+      <span class="estado ativa"><span class="dot sucesso"></span>Ativa</span>
+    </button>
+
+    <button class="fonte-item">
+      <svg class="icone-violeta" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="1.5" y="2.5" width="13" height="9" rx="1.5"/>
+        <path d="M5.5 14h5" stroke-linecap="round"/>
+      </svg>
+      <span class="nome">Monitor</span>
+      <span class="estado ativa"><span class="dot sucesso"></span>Ativa</span>
+    </button>
+
+    <button class="fonte-item">
+      <svg class="icone-neutro" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
+        <path d="M4.5 3.2v9.6c0 .6.7 1 1.2.7l7.8-4.8c.5-.3.5-1 0-1.3L5.7 2.5c-.5-.3-1.2 0-1.2.7z"/>
+      </svg>
+      <span class="nome">Quick Play</span>
+      <span class="estado">Inativa</span>
+    </button>
+
+    <button class="fonte-item">
+      <svg class="icone-neutro" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M8 2v4M8 6l3-3M8 6L5 3"/>
+        <path d="M2.5 9.5h11v4h-11z"/>
+      </svg>
+      <span class="nome">Starter</span>
+      <span class="estado">Inativa</span>
+    </button>
+
+    <div class="secao-titulo">Memória</div>
+
+    <div class="card-contexto vidro">
+      <div class="memoria-item">
+        <span class="losango"></span>
+        Prefere respostas em português
+      </div>
+      <div class="memoria-item">
+        <span class="losango"></span>
+        Projeto ativo: Resolux macOS + iOS
+      </div>
+      <button class="btn-revisar">Revisar memória</button>
+    </div>
+  </aside>
+</template>
+
+<template name="monitor">
+  <main class="pagina-simples">
+    <div class="monitor-col">
+      <header class="monitor-header">
+        <div class="monitor-titulo-grupo">
+          <div class="monitor-icone" aria-hidden="true">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <rect x="1.5" y="2.5" width="13" height="9" rx="1.5"/>
+              <path d="M5.5 14h5"/>
+            </svg>
+          </div>
+          <div>
+            <h1>Monitor Arena</h1>
+            <p class="subtitulo">Arena REST · leitura pura</p>
+          </div>
+        </div>
+        <span class="pill-status {{#if monitorOk}}pill-sucesso{{else if monitorErro}}pill-alerta{{/if}}">
+          {{monitorStatus}}
+        </span>
+      </header>
+
+      {{#if grade}}
+        <div class="monitor-live">
+          {{#if grade.ativo}}
+            <span class="clip-ativo-nome">{{grade.ativo.nome}}</span>
+            <span class="clip-ativo-endereco">tocando em {{grade.ativo.endereco}}</span>
+          {{else}}
+            <span class="clip-ativo-nome neutro">nenhum clip tocando</span>
+          {{/if}}
+          <span class="ultimo-poll">último poll {{horaUltimoPoll}}</span>
+        </div>
+
+        {{#if ehMock}}
+          <p class="nota-mock">Mock local: grade de exemplo, sem Arena de verdade —
+            por isso não há thumbnails. Com o daemon de pé, a grade e as thumbs
+            vêm do proxy read-only <code>/api/v1/arena/**</code>.</p>
+        {{/if}}
+
+        {{#if erroMonitor}}
+          <div class="aviso-erro vidro" role="alert">
+            <strong>Monitor falhou:</strong> {{erroMonitor}}
+          </div>
+        {{/if}}
+
+        <section class="grade-card vidro">
+          <div class="card-titulo-linha">
+            <h2>Grade de clips</h2>
+            <div class="grade-pills">
+              <span class="pill-status" title="Zoom da grade (arraste com o mouse)">{{zoomPct}}</span>
+              <span class="pill-status">{{contagemClips}}</span>
+            </div>
+          </div>
+
+          {{#each camada in grade.camadas}}
+            <div class="camada">
+              <div class="camada-rotulo">camada {{camada.numero}}</div>
+              <div class="camada-linha" style="--zoom: {{zoomGrade}}">
+                {{#each celula in camada.celulas}}
+                  <div class="clip-celula {{#if celula.ativo}}ativo{{/if}}
+                              {{#unless celula.preenchido}}vazio{{/unless}}
+                              {{#if celula.thumbUrl}}com-thumb{{/if}}"
+                       title="{{#if celula.preenchido}}{{celula.id}} · {{celula.nome}}{{else}}{{celula.id}} · slot vazio{{/if}}">
+                    {{#if celula.thumbUrl}}
+                      <img class="clip-thumb" src="{{celula.thumbUrl}}" alt=""
+                           loading="lazy" draggable="false"
+                           onerror="this.classList.add('thumb-falha')">
+                    {{/if}}
+                    {{#if celula.preenchido}}
+                      <span class="clip-nome">{{celula.nome}}</span>
+                    {{else}}
+                      <span class="clip-vazio" aria-hidden="true">—</span>
+                    {{/if}}
+                  </div>
+                {{/each}}
+              </div>
+            </div>
+          {{/each}}
+
+          <div class="grade-rodape">
+            Lupa: segure e arraste na grade — pra direita amplia, pra
+            esquerda reduz. Duplo clique volta ao 100%.
+          </div>
+        </section>
+      {{else}}
+        <div class="em-breve vidro">
+          {{#if erroMonitor}}
+            <div class="secao-titulo">Monitor indisponível</div>
+            <p><strong>{{erroMonitor}}</strong> Sem uma grade boa em memória para mostrar.</p>
+          {{else}}
+            <div class="secao-titulo">Sondando o Arena…</div>
+            <p>Primeiro poll da grade ainda não voltou.</p>
+          {{/if}}
+        </div>
+      {{/if}}
+    </div>
+  </main>
+</template>
+
+<template name="secaoEmBreve">
+  <main class="pagina-simples">
+    <div class="em-breve vidro">
+      <div class="secao-titulo">{{rotuloSecao}}</div>
+      <p>Esta seção ainda não tem tela no cliente web — fora desta tacada.
+        Hoje ela existe só no app nativo.</p>
+    </div>
+  </main>
+</template>
+
+<template name="ajustes">
+  <main class="pagina-simples">
+    <div class="ajustes-col">
+      <header class="ajustes-header">
+        <h1>Ajustes</h1>
+        <p class="subtitulo">Sessão do motor — grava na hora, direto no daemon.</p>
+      </header>
+
+      {{#if erroSessao}}
+        <div class="aviso-erro vidro" role="alert">
+          <strong>Motor recusou:</strong> {{erroSessao}}
+        </div>
+      {{/if}}
+
+      {{#if sessao}}
+        <section class="card-ajuste vidro">
+          <div class="card-titulo-linha">
+            <h2>Motor</h2>
+            <span class="pill-status {{#if motorEhMock}}pill-alerta{{/if}}">
+              {{#if salvando}}Salvando…{{else}}{{sessao.backend}} · {{sessao.model}}{{/if}}
+            </span>
+          </div>
+
+          {{#if motorEhMock}}
+            <p class="nota-mock">Mock local: estas mudanças vivem só nesta aba e
+              somem ao recarregar. Com o daemon de pé, valem na sessão real.</p>
+          {{/if}}
+
+          <div class="campo">
+            <label>Modo de operação</label>
+            <div class="segmented" role="group" aria-label="Modo de operação">
+              <button class="seg {{#if modoEh 'timeline'}}seg-ativo{{/if}}" data-modo="timeline">
+                Timeline <span class="seg-sub">Calcula</span>
+              </button>
+              <button class="seg {{#if modoEh 'performance'}}seg-ativo{{/if}}" data-modo="performance">
+                Performance <span class="seg-sub">Mede</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="campo">
+            <label>Backend do assistente</label>
+            <div class="segmented" role="group" aria-label="Backend do assistente">
+              <button class="seg {{#if backendEh 'ollama'}}seg-ativo{{/if}}" data-backend="ollama">Ollama</button>
+              <button class="seg {{#if backendEh 'applefm'}}seg-ativo{{/if}}" data-backend="applefm">Apple FM</button>
+            </div>
+          </div>
+
+          <div class="campo">
+            <label for="campo-modelo">Modelo</label>
+            <input id="campo-modelo" class="campo-texto" type="text" value="{{sessao.model}}"
+                   spellcheck="false" autocomplete="off">
+          </div>
+
+          <div class="campo">
+            <label>Política de escrita</label>
+            <div class="politica-leitura">
+              <span class="dot marca" aria-hidden="true"></span>
+              Somente leitura — fixo na v1 do contrato. Escrita só aparece aqui
+              quando o operador mudar esse voto.
+            </div>
+          </div>
+
+          <div class="card-meta-linha">
+            {{sessao.toolsAllowed}} ferramentas visíveis ao modelo ·
+            journal {{#if sessao.journalEnabled}}ligado{{else}}desligado{{/if}}
+          </div>
+        </section>
+
+        <section class="card-ajuste vidro">
+          <div class="card-titulo-linha">
+            <h2>Ferramentas do Arena</h2>
+            <span class="pill-status">{{contagemFerramentas}}</span>
+          </div>
+
+          <label class="linha-check">
+            <input type="checkbox" id="chk-todas" {{attrTodas}}>
+            Todas as ferramentas visíveis
+          </label>
+
+          {{#unless todasFerramentas}}
+            {{#if ferramentas.length}}
+              <div class="lista-ferramentas">
+                {{#each ferramentas}}
+                  <label class="linha-check ferramenta">
+                    <input type="checkbox" class="chk-ferramenta" value="{{name}}"
+                           {{attrFerramentaMarcada name}}>
+                    <span class="nome-ferramenta">{{name}}</span>
+                    <span class="desc-ferramenta">{{description}}</span>
+                  </label>
+                {{/each}}
+              </div>
+            {{else}}
+              <p class="nota-mock">Nenhuma ferramenta anunciada pelo motor
+                {{#if motorEhMock}}(o mock não tem ferramentas do Arena){{/if}}.</p>
+            {{/if}}
+          {{/unless}}
+        </section>
+      {{else}}
+        <div class="aviso-erro vidro">
+          <strong>Sessão indisponível.</strong>
+          O motor não respondeu ao <code>GET /api/v1/session</code>.
+          {{#unless erroSessao}}Tente recarregar a página para sondar de novo.{{/unless}}
+        </div>
+      {{/if}}
+    </div>
+  </main>
+</template>
