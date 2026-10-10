@@ -160,8 +160,8 @@ export class MockDaemon {
     if (patch.mode != null && !['timeline', 'performance'].includes(patch.mode)) {
       throw new ErroApi('valor_invalido', `mode deve ser timeline|performance`);
     }
-    if (patch.backend != null && !['ollama', 'applefm'].includes(patch.backend)) {
-      throw new ErroApi('valor_invalido', `backend deve ser ollama|applefm`);
+    if (patch.backend != null && !['ollama', 'applefm', 'spike'].includes(patch.backend)) {
+      throw new ErroApi('valor_invalido', `backend deve ser ollama|applefm|spike`);
     }
     this.sessao = { ...this.sessao, ...patch };
     return { ...this.sessao };

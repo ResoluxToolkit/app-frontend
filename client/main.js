@@ -464,6 +464,7 @@ function renderAjustes() {
         <label>Backend do assistente</label>
         <div class="segmented" role="group" aria-label="Backend do assistente">
           <button class="seg ${sessao.backend === 'ollama' ? 'seg-ativo' : ''}" data-backend="ollama">Ollama</button>
+          <button class="seg ${sessao.backend === 'spike' ? 'seg-ativo' : ''}" data-backend="spike">Spike</button>
           <button class="seg ${sessao.backend === 'applefm' ? 'seg-ativo' : ''}" data-backend="applefm">Apple FM</button>
         </div>
       </div>
