@@ -573,7 +573,6 @@ function registrarAssinaturas() {
 
   estadoMonitor.assinar(renderMonitor);
   gradeMonitor.assinar(renderMonitor);
-  ultimoPollMonitor.assinar(renderMonitor);
   erroMonitor.assinar(renderMonitor);
   backendAtivo.assinar(renderMonitor);
   zoomGrade.assinar((valor) => {

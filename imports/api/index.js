@@ -8,7 +8,7 @@ import { Sinal } from '../ui/signal.js';
 
 import { ResoluxDaemon } from './client.js';
 import { MockDaemon } from './mock.js';
-import { montarGrade } from '../ui/grade.js';
+import { montarGrade, mesmaGrade } from '../ui/grade.js';
 
 const daemon = new ResoluxDaemon();
 const mock = new MockDaemon();
@@ -107,8 +107,13 @@ export function assinarMonitorGrade() {
               : null;
         }
       }
-      gradeMonitor.set(grade);
-      ultimoPollMonitor.set(new Date());
+      // O daemon compara o JSON bruto do Arena, que muda por causa do
+      // transporte/parâmetros. Aqui só atualizamos o que a grade exibe;
+      // sem isso, <img> é recriado a cada tick e a thumb pisca.
+      if (!mesmaGrade(gradeMonitor.get(), grade)) {
+        ultimoPollMonitor.set(new Date());
+        gradeMonitor.set(grade);
+      }
       erroMonitor.set(null);
       estadoMonitor.set('ok');
     },

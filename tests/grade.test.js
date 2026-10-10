@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { montarGrade, rotuloCamada } from '../imports/ui/grade.js';
+import { montarGrade, rotuloCamada, mesmaGrade } from '../imports/ui/grade.js';
 import { MockDaemon } from '../imports/api/mock.js';
 
 const composicao = {
@@ -80,6 +80,20 @@ describe('grade de clips', () => {
     assert.equal(rotuloCamada({ value: 'Camada especial' }, 2), 'Camada especial');
     assert.equal(rotuloCamada({ value: 'Layer #' }, 3), 'Layer 3');
     assert.equal(rotuloCamada(null, 4), 'Camada 4');
+  });
+
+  it('ignora mudança invisível do transporte e só marca mudança de grade', () => {
+    const grade = montarGrade(composicao);
+    const mesmoPoll = montarGrade(composicao);
+    assert.equal(mesmaGrade(grade, mesmoPoll), true);
+
+    const comTransporteDiferente = structuredClone(composicao);
+    comTransporteDiferente.layers[0].clips[0].transport.controls.duration = { value: 999 };
+    assert.equal(mesmaGrade(grade, montarGrade(comTransporteDiferente)), true);
+
+    const comNomeDiferente = structuredClone(composicao);
+    comNomeDiferente.layers[0].clips[0].name = { value: 'Outro clip' };
+    assert.equal(mesmaGrade(grade, montarGrade(comNomeDiferente)), false);
   });
 });
 

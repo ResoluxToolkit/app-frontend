@@ -74,6 +74,14 @@ export function rotuloCamada(nome, numero) {
   return texto.replace(/#/g, String(numero));
 }
 
+// O Arena devolve posição/parâmetros vivos a cada tick, mas o Monitor
+// só mostra grade: comparamos o modelo já interpretado pra evitar
+// re-render (e recriação de <img>) quando nada visível mudou.
+export function mesmaGrade(anterior, proxima) {
+  if (!anterior || !proxima) return false;
+  return JSON.stringify(anterior) === JSON.stringify(proxima);
+}
+
 // Converte o corpo de GET /composition em camadas de células.
 // `ativo` é o primeiro clip reproduzindo (active_clip da camada,
 // igual ao REST — pausado não existe na API dele, não inventamos).
