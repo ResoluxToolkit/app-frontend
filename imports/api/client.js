@@ -12,7 +12,18 @@ const BASE_PADRAO =
   typeof window !== 'undefined' && window.location.protocol.startsWith('http')
     ? ''
     : 'http://127.0.0.1:1980';
-const WS_PADRAO = `${BASE_PADRAO}/api/v1/ws`.replace(/^http/, 'ws');
+
+// O WS do daemon resolve pelo mesmo origem em dev/prod e cai no endereço
+// documentado quando o bundle é aberto direto do arquivo. O contrato é fixo
+// em /api/v1/ws; quem muda é só o host da janela.
+export function resolverUrlWs(loc) {
+  const contexto = loc ?? (typeof window !== 'undefined' ? window.location : undefined);
+  if (!contexto || !contexto.protocol?.startsWith('http')) {
+    return 'ws://127.0.0.1:1980/api/v1/ws';
+  }
+  const protocolo = contexto.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocolo}//${contexto.host}/api/v1/ws`;
+}
 
 // Turnos locais levam minutos (medido no engine: 34 s a 3 min+).
 const TIMEOUT_SONDA_MS = 2000;
@@ -44,7 +55,7 @@ async function lerEnvelopeErro(resposta) {
 }
 
 export class ResoluxDaemon {
-  constructor({ base = BASE_PADRAO, wsUrl = WS_PADRAO } = {}) {
+  constructor({ base = BASE_PADRAO, wsUrl = resolverUrlWs() } = {}) {
     this.base = base;
     this.wsUrl = wsUrl;
     this.nome = 'daemon';
@@ -90,37 +101,67 @@ export class ResoluxDaemon {
     return res.json();
   }
 
-  // ------------------------------------------------------------
-  // Monitor do Arena — ASSINATURA, não poll da UI.
-  //
-  // IMPORTANTE (regra do projeto): a UI nunca fala com o Arena
-  // diretamente; o motor é a fonte de verdade e o canal definitivo
-  // desta assinatura é o WebSocket do daemon (o daemon já é dono do
-  // poll de 1 s no Arena no app nativo). Enquanto o canal WS não é
-  // definido pela engine, este método emula a assinatura em cima do
-  // proxy HTTP read-only — CAMINHO DE TESTE, a trocar pelo WS sem
-  // tocar na UI.
-  //
-  // Definição futura (proposta pro contrato, a engine fecha a versão):
-  //   cliente → {"type":"monitor.subscribe","id":"mon-1"}
-  //   engine  → {"type":"monitor.update","id":"mon-1","payload":{"composition":{...}}}
-  //   engine  → {"type":"monitor.error","id":"mon-1","payload":{"code","message"}}
-  //   thumbnails viajando junto (base64) ou por URL de sessão no canal.
-  // ------------------------------------------------------------
+  // Monitor do Arena — ASSINATURA via WS, não poll da UI. O daemon é quem
+  // mantém o poll de 1 s no REST do Arena e empurra só quando muda. O canal
+  // do contrato é monitor.subscribe/monitor.update/monitor.error. As thumbs
+  // continuam por proxy HTTP nesta tacada.
 
   assinarMonitor(callbacks = {}) {
-    const poll = async () => {
-      try {
-        callbacks.onDados?.(await this.getComposition());
-      } catch (e) {
-        callbacks.onErro?.(e.codigo || 'erro', e.message);
-      }
+    let cancelado = false;
+    let timer = null;
+    let tentativa = 0;
+    let socket = null;
+
+    const conectar = () => {
+      if (cancelado) return;
+      const id = `mon-${Date.now()}-${++tentativa}`;
+      socket = new WebSocket(this.wsUrl);
+      const ws = socket;
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'monitor.subscribe', id }));
+        callbacks.onEstado?.('pollando');
+      };
+
+      ws.onmessage = (evento) => {
+        let mensagem;
+        try {
+          mensagem = JSON.parse(evento.data);
+        } catch (_) {
+          return;
+        }
+        if (mensagem.type === 'monitor.update') {
+          callbacks.onDados?.(mensagem.payload?.composition);
+          callbacks.onEstado?.('ok');
+        } else if (mensagem.type === 'monitor.error' || mensagem.type === 'error') {
+          callbacks.onEstado?.('erro');
+          callbacks.onErro?.(
+            mensagem.payload?.code || 'erro',
+            mensagem.payload?.message || 'O daemon não conseguiu ler o Arena.',
+          );
+        }
+      };
+
+      ws.onclose = () => {
+        if (cancelado) return;
+        callbacks.onEstado?.('pollando');
+        timer = setTimeout(conectar, 2000);
+      };
+
+      ws.onerror = () => {
+        callbacks.onEstado?.('erro');
+      };
     };
-    poll();
-    const timer = setInterval(poll, 3000);
+
+    conectar();
+
     return {
       cancelar() {
-        clearInterval(timer);
+        cancelado = true;
+        clearTimeout(timer);
+        timer = null;
+        socket?.close();
+        socket = null;
       },
     };
   }
