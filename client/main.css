@@ -639,6 +639,17 @@ button {
 }
 .composer input::placeholder { color: var(--texto-3); }
 
+/* Corpos do composer: cada estado é um corpo flex do form. Sem isso o
+   flex:1 do input não aplica e os botões quebram de linha. */
+#composer-espera,
+#composer-ativo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
 .btn-mic {
   width: 38px; height: 38px;
   border-radius: 50%;
