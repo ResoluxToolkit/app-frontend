@@ -33,7 +33,7 @@ class OrbManager {
           this.pintarTudo();
         });
 
-      // Blaze recria canvases a cada render — observar o DOM.
+      // O re-render do app recria canvases — observar o DOM.
       this.observer = new MutationObserver(() => this.scan());
       this.observer.observe(document.body, {
         childList: true,

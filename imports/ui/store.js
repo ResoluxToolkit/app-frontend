@@ -1,10 +1,10 @@
-import { ReactiveVar } from 'meteor/reactive-var';
+import { Sinal } from './signal.js';
 
 // ------------------------------------------------------------
 // Navegação: seção ativa da topbar
 // ------------------------------------------------------------
 
-export const secaoAtiva = new ReactiveVar('assistente');
+export const secaoAtiva = new Sinal('assistente');
 
 // ------------------------------------------------------------
 // Estado global da tela Assistente (mock interativo)
@@ -12,7 +12,7 @@ export const secaoAtiva = new ReactiveVar('assistente');
 
 let proximoId = 3;
 
-export const mensagens = new ReactiveVar([
+export const mensagens = new Sinal([
   {
     id: 1,
     papel: 'usuario',
@@ -33,17 +33,17 @@ export const mensagens = new ReactiveVar([
   },
 ]);
 
-export const processando = new ReactiveVar(false);
-export const ouvindo = new ReactiveVar(false);
-export const focado = new ReactiveVar(false);
-export const rascunho = new ReactiveVar('');
-export const contextoPct = new ReactiveVar(9);
+export const processando = new Sinal(false);
+export const ouvindo = new Sinal(false);
+export const focado = new Sinal(false);
+export const rascunho = new Sinal('');
+export const contextoPct = new Sinal(9);
 
 // Estado do agente: breathing | listening | searching | composing | working
-export const estadoAgente = new ReactiveVar('breathing');
+export const estadoAgente = new Sinal('breathing');
 
-export const rotuloTrabalho = new ReactiveVar('Analisando o monitor do Arena…');
-export const rotuloProcessando = new ReactiveVar('Processando ação no Monitor…');
+export const rotuloTrabalho = new Sinal('Analisando o monitor do Arena…');
+export const rotuloProcessando = new Sinal('Processando ação no Monitor…');
 
 // ------------------------------------------------------------
 // Monitor — zoom da grade de clips ("lupa"): arrastar o mouse
@@ -52,7 +52,7 @@ export const rotuloProcessando = new ReactiveVar('Processando ação no Monitor�
 
 export const ZOOM_MIN = 0.6;
 export const ZOOM_MAX = 3;
-export const zoomGrade = new ReactiveVar(1);
+export const zoomGrade = new Sinal(1);
 
 export function ajustarZoom(z) {
   zoomGrade.set(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z)));

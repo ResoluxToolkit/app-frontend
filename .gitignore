@@ -1,10 +1,7 @@
 node_modules/
 
-# Estado local do Meteor (pacotes instalados, banco de dev e logs)
-.meteor/local/
-
-# Saída de build do Meteor Modern-Tools
-_build/
+# Saída de build do Vite (estado local)
+dist/
 */build-assets*
 */build-chunks*
 .rsdoctor/
@@ -14,3 +11,7 @@ _build/
 .env
 .env.*
 !.env.example
+
+# Contextos antigos de build
+_build
+.rsdoctor

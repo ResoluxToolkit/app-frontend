@@ -1,0 +1,186 @@
+pageType: content
+background:
+  type: solid
+  color: "$fundo"
+elements:
+  - elementId: rotulo-topo
+    elementType: text
+    bounds: [48, 40, 320, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      letterSpacing: 4
+      align: [left, middle]
+      wrap: false
+      text: RESOLUX · IDENTIDADE
+
+  # Divisória vertical
+  - elementId: divisoria
+    elementType: line
+    bounds: [640, 120, 1, 520]
+    viewBox: [1, 520]
+    points: "0,0 0,520"
+    border: {style: solid, width: 1, color: "$hairline"}
+
+  # Símbolo grande (lado esquerdo)
+  - elementId: anel-grande
+    elementType: shape
+    bounds: [150, 190, 300, 300]
+    shapeName: donut
+    adjustments: [34000]
+    fill:
+      type: gradient
+      gradientType: linear
+      angle: 45
+      stops:
+        - {position: 0, color: "$marca"}
+        - {position: 1, color: "$violeta"}
+  - elementId: nucleo-grande
+    elementType: shape
+    bounds: [306, 262, 72, 72]
+    shapeName: ellipse
+    fill:
+      type: gradient
+      gradientType: radial
+      stops:
+        - {position: 0, color: "#FF9E70"}
+        - {position: 1, color: "$marca"}
+  - elementId: rotulo-simbolo
+    elementType: text
+    bounds: [100, 516, 400, 24]
+    content:
+      fontFamily: Liter
+      fontSize: 16
+      color: "$texto2"
+      align: [center, middle]
+      wrap: false
+      text: Símbolo — o orbe de luz
+  - elementId: rotulo-simbolo-sub
+    elementType: text
+    bounds: [100, 544, 400, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      align: [center, middle]
+      wrap: false
+      text: anel = projeção · núcleo = o assistente em estado composing
+
+  # Ícone do app (lado direito)
+  - elementId: icone-fundo
+    elementType: shape
+    bounds: [760, 180, 260, 260]
+    shapeName: roundRect
+    adjustments: [22300]
+    fill:
+      type: gradient
+      gradientType: linear
+      angle: 90
+      stops:
+        - {position: 0, color: "#1B1B21"}
+        - {position: 1, color: "#0E0E12"}
+    border: {style: solid, width: 1, color: "$hairline"}
+    shadow: {blur: 24, color: "#00000066", offset: [0, 8]}
+  - elementId: icone-anel
+    elementType: shape
+    bounds: [815, 235, 150, 150]
+    shapeName: donut
+    adjustments: [34000]
+    fill:
+      type: gradient
+      gradientType: linear
+      angle: 45
+      stops:
+        - {position: 0, color: "$marca"}
+        - {position: 1, color: "$violeta"}
+  - elementId: icone-nucleo
+    elementType: shape
+    bounds: [893, 271, 36, 36]
+    shapeName: ellipse
+    fill:
+      type: gradient
+      gradientType: radial
+      stops:
+        - {position: 0, color: "#FF9E70"}
+        - {position: 1, color: "$marca"}
+  - elementId: rotulo-icone
+    elementType: text
+    bounds: [740, 470, 300, 24]
+    content:
+      fontFamily: Liter
+      fontSize: 16
+      color: "$texto2"
+      align: [center, middle]
+      wrap: false
+      text: Ícone do app
+
+  # Teste de escala: 64 / 32 / 16 px
+  - elementId: mini64-anel
+    elementType: shape
+    bounds: [780, 540, 64, 64]
+    shapeName: donut
+    adjustments: [34000]
+    fill:
+      type: gradient
+      gradientType: linear
+      angle: 45
+      stops:
+        - {position: 0, color: "$marca"}
+        - {position: 1, color: "$violeta"}
+  - elementId: mini64-nucleo
+    elementType: shape
+    bounds: [813, 555, 15, 15]
+    shapeName: ellipse
+    fill: {type: solid, color: "$marca"}
+  - elementId: mini32-anel
+    elementType: shape
+    bounds: [872, 556, 32, 32]
+    shapeName: donut
+    adjustments: [34000]
+    fill:
+      type: gradient
+      gradientType: linear
+      angle: 45
+      stops:
+        - {position: 0, color: "$marca"}
+        - {position: 1, color: "$violeta"}
+  - elementId: mini32-nucleo
+    elementType: shape
+    bounds: [889, 564, 8, 8]
+    shapeName: ellipse
+    fill: {type: solid, color: "$marca"}
+  - elementId: mini16-anel
+    elementType: shape
+    bounds: [932, 564, 16, 16]
+    shapeName: donut
+    adjustments: [34000]
+    fill: {type: solid, color: "$marca"}
+  - elementId: mini16-nucleo
+    elementType: shape
+    bounds: [940, 568, 4, 4]
+    shapeName: ellipse
+    fill: {type: solid, color: "$marca"}
+  - elementId: rotulo-escala
+    elementType: text
+    bounds: [980, 552, 220, 52]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      lineHeight: 1.5
+      align: [left, middle]
+      text: |
+        <p>legível do ícone ao favicon</p>
+        <p>64 · 32 · 16 px</p>
+
+  - elementId: rotulo-base
+    elementType: text
+    bounds: [48, 664, 480, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      align: [left, middle]
+      wrap: false
+      text: 02 — Símbolo e ícone

@@ -1,0 +1,20 @@
+version: v2
+title: Resolux — Identidade
+size: [1280, 720]
+customFonts:
+  - family: Liter
+    src: "https://statics.kimi.ai/neo-design-static/p-font/Liter.ttf"
+theme:
+  colors:
+    fundo: "#0A0A0D"
+    texto: "#F5F5F7"
+    texto2: "#9C9CA3"
+    texto3: "#6E6E75"
+    marca: "#F26B33"
+    violeta: "#BF5AF2"
+    hairline: "#FFFFFF1A"
+pages:
+  - pages/1_marca-principal.page
+  - pages/2_simbolo-icone.page
+  - pages/3_versoes.page
+  - pages/4_lockups-paleta.page

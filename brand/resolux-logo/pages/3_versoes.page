@@ -1,0 +1,155 @@
+pageType: content
+background:
+  type: solid
+  color: "$fundo"
+elements:
+  - elementId: rotulo-topo
+    elementType: text
+    bounds: [48, 40, 320, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      letterSpacing: 4
+      align: [left, middle]
+      wrap: false
+      text: RESOLUX · IDENTIDADE
+
+  # Divisória vertical
+  - elementId: divisoria
+    elementType: line
+    bounds: [660, 120, 1, 520]
+    viewBox: [1, 520]
+    points: "0,0 0,520"
+    border: {style: solid, width: 1, color: "$hairline"}
+
+  # Zona esquerda: versão principal em gradiente
+  - elementId: principal-anel
+    elementType: shape
+    bounds: [244, 200, 220, 220]
+    shapeName: donut
+    adjustments: [34000]
+    fill:
+      type: gradient
+      gradientType: linear
+      angle: 45
+      stops:
+        - {position: 0, color: "$marca"}
+        - {position: 1, color: "$violeta"}
+  - elementId: principal-nucleo
+    elementType: shape
+    bounds: [358, 253, 53, 53]
+    shapeName: ellipse
+    fill:
+      type: gradient
+      gradientType: radial
+      stops:
+        - {position: 0, color: "#FF9E70"}
+        - {position: 1, color: "$marca"}
+  - elementId: rotulo-principal
+    elementType: text
+    bounds: [104, 460, 500, 24]
+    content:
+      fontFamily: Liter
+      fontSize: 16
+      color: "$texto2"
+      align: [center, middle]
+      wrap: false
+      text: principal · gradiente --marca → --violeta
+  - elementId: nota-principal
+    elementType: text
+    bounds: [104, 560, 500, 40]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      lineHeight: 1.5
+      align: [center, top]
+      text: |
+        <p>o gradiente é expressão da aplicação;</p>
+        <p>o núcleo da identidade sobrevive em uma cor só</p>
+
+  # Zona direita: três versões monocromáticas
+  - elementId: mono-marca-anel
+    elementType: shape
+    bounds: [740, 150, 96, 96]
+    shapeName: donut
+    adjustments: [34000]
+    fill: {type: solid, color: "$marca"}
+  - elementId: mono-marca-nucleo
+    elementType: shape
+    bounds: [790, 173, 23, 23]
+    shapeName: ellipse
+    fill: {type: solid, color: "$marca"}
+  - elementId: mono-marca-label
+    elementType: text
+    bounds: [868, 183, 340, 30]
+    content:
+      fontFamily: Liter
+      fontSize: 16
+      color: "$texto2"
+      align: [left, middle]
+      wrap: false
+      text: "mono · --marca #F26B33"
+
+  - elementId: mono-claro-anel
+    elementType: shape
+    bounds: [740, 290, 96, 96]
+    shapeName: donut
+    adjustments: [34000]
+    fill: {type: solid, color: "$texto"}
+  - elementId: mono-claro-nucleo
+    elementType: shape
+    bounds: [790, 313, 23, 23]
+    shapeName: ellipse
+    fill: {type: solid, color: "$texto"}
+  - elementId: mono-claro-label
+    elementType: text
+    bounds: [868, 323, 340, 30]
+    content:
+      fontFamily: Liter
+      fontSize: 16
+      color: "$texto2"
+      align: [left, middle]
+      wrap: false
+      text: "mono · claro #F5F5F7"
+
+  # Versão reversa sobre fundo claro
+  - elementId: painel-claro
+    elementType: shape
+    bounds: [700, 440, 532, 190]
+    shapeName: roundRect
+    adjustments: [12000]
+    fill: {type: solid, color: "$texto"}
+  - elementId: mono-escuro-anel
+    elementType: shape
+    bounds: [740, 487, 96, 96]
+    shapeName: donut
+    adjustments: [34000]
+    fill: {type: solid, color: "$fundo"}
+  - elementId: mono-escuro-nucleo
+    elementType: shape
+    bounds: [790, 510, 23, 23]
+    shapeName: ellipse
+    fill: {type: solid, color: "$fundo"}
+  - elementId: mono-escuro-label
+    elementType: text
+    bounds: [868, 520, 340, 30]
+    content:
+      fontFamily: Liter
+      fontSize: 16
+      color: "#3A3A3F"
+      align: [left, middle]
+      wrap: false
+      text: "reversa · escuro #0A0A0D"
+
+  - elementId: rotulo-base
+    elementType: text
+    bounds: [48, 664, 480, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      align: [left, middle]
+      wrap: false
+      text: 03 — Versões monocromáticas

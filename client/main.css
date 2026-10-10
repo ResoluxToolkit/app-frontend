@@ -1,6 +1,6 @@
 /* ============================================================
    Resolux — Assistente (web)
-   Port da spec "Liquid Glass" para Meteor Blaze.
+   Port da spec "Liquid Glass" para o cliente Resolux.
    Tokens conforme a imagem de especificação.
    ============================================================ */
 
@@ -130,6 +130,17 @@ button {
   display: grid;
   grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--contexto-w);
   min-height: 0;
+}
+
+/* Sem Blaze: cada seção é um grupo de elementos da mesma grid.
+   display: contents faz sidebar/thread/painel entrarem direto na
+   estrutura; hidden esconde a seção inteira sem depender de JS extra. */
+[hidden] {
+  display: none !important;
+}
+
+.visao-assistente:not([hidden]) {
+  display: contents;
 }
 
 /* ------------------------------------------------------------
@@ -779,7 +790,10 @@ button {
 /* ------------------------------------------------------------
    Páginas simples (Ajustes, seções em breve)
    ------------------------------------------------------------ */
-.app-body-simples {
+/* Especificidade dupla de propósito: os media queries abaixo redefinem
+   .app-body com a mesma especificidade e venceriam pelo fim do arquivo,
+   deixando as páginas simples com uma coluna de 260 px. */
+.app-body.app-body-simples {
   grid-template-columns: minmax(0, 1fr);
 }
 

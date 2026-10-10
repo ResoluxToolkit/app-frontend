@@ -5,7 +5,7 @@
 // dos dois está respondendo.
 // ------------------------------------------------------------
 
-import { ErroApi } from '/imports/api/client';
+import { ErroApi } from './client.js';
 
 const ROTULOS_ACAO = [
   [/c[aâ]mera/i, 'Verificando a câmera…', 'Ação na Câmera'],

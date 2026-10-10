@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <title>Resolux — Assistente</title>
+  </head>
+  <body>
+    <div class="aurora" aria-hidden="true"></div>
+
+    <div class="app">
+      <header class="topbar">
+        <div class="topbar-logo"><span class="logo-dot" aria-hidden="true"></span>Resolux</div>
+        <nav class="topbar-nav" aria-label="Seções">
+          <button class="nav-pill" data-secao="camera">Câmera</button>
+          <button class="nav-pill" data-secao="monitor">Monitor</button>
+          <button class="nav-pill ativa" data-secao="assistente">Assistente</button>
+          <button class="nav-pill" data-secao="starter">Starter</button>
+          <button class="nav-pill" data-secao="ajustes">Ajustes</button>
+        </nav>
+        <div class="topbar-direita">
+          <div class="dispositivo-pill" title="Origem das respostas do assistente">
+            <span id="motor-dot" class="dot neutro" aria-hidden="true"></span>
+            <span id="motor-rotulo">Sondando motor…</span>
+          </div>
+          <div class="dispositivo-pill">
+            <span class="dot sucesso" aria-hidden="true"></span>iPhone 15 Pro
+          </div>
+          <div class="avatar" title="Luizinho">L</div>
+        </div>
+      </header>
+
+      <div id="app-body" class="app-body">
+        <section id="view-assistente" class="visao-assistente">
+          <aside class="sidebar">
+            <button id="btn-nova" class="btn-nova">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+              Nova conversa
+            </button>
+            <div class="secao-titulo">Hoje</div>
+            <button class="sessao ativa"><div class="titulo">Hello World</div><div class="meta">Assistente · 03:29</div></button>
+            <button class="sessao"><div class="titulo">Setup da câmera</div><div class="meta">Ontem</div></button>
+            <button class="sessao"><div class="titulo">Monitor do Arena</div><div class="meta">Segunda-feira</div></button>
+            <div class="sidebar-divisor"></div>
+            <div class="secao-titulo">Capabilities</div>
+            <div class="chips-cap">
+              <button class="chip"><svg class="icone-info" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="4" width="9" height="8" rx="2"/><path d="M10.5 7l4-2.5v7L10.5 9" stroke-linejoin="round"/></svg>Captura</button>
+              <button class="chip"><svg class="icone-sucesso" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 10L2 14M8 2l6 6-8.5.5L6 10V6z"/></svg>Compartilhar</button>
+            </div>
+          </aside>
+
+          <main class="thread-wrap" id="thread-scroll">
+            <div class="thread">
+              <div class="data-rotulo">Hoje</div>
+              <div id="lista-mensagens"></div>
+              <div id="status-trabalho" class="status-trabalho" role="status" hidden>
+                <canvas id="orb-status" class="orb-canvas" data-orb="working" data-orb-tamanho="20" width="20" height="20" aria-hidden="true"></canvas>
+                <span id="rotulo-trabalho">Analisando o monitor do Arena…</span>
+                <span id="rotulo-estado" class="rotulo-estado working">working</span>
+              </div>
+              <div class="acoes-rapidas">
+                <button class="acao-rapida" data-acao="Verificar câmera"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="4" width="9" height="8" rx="2"/><path d="M10.5 7l4-2.5v7L10.5 9" stroke-linejoin="round"/></svg>Verificar câmera</button>
+                <button class="acao-rapida" data-acao="Status do monitor"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="9" rx="1.5"/><path d="M5.5 14h5" stroke-linecap="round"/></svg>Status do monitor</button>
+                <button class="acao-rapida" data-acao="Ver atualizações"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v9M4.5 7.5L8 11l3.5-3.5M2.5 14h11"/></svg>Ver atualizações</button>
+              </div>
+              <div class="barra-contexto">
+                <span class="rotulo"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4.5" y="4.5" width="7" height="7" rx="1.5"/><path d="M6 1.5v3M10 1.5v3M6 11.5v3M10 11.5v3M1.5 6h3M1.5 10h3M11.5 6h3M11.5 10h3" stroke-linecap="round"/></svg>Contexto</span>
+                <div class="trilho"><div id="preenchimento-contexto" class="preenchimento" style="width: 9%"></div></div>
+                <span id="pct-contexto" class="pct">9%</span>
+                <button class="engrenagem" aria-label="Ajustes de contexto"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M12.4 3.6l-1.2 1.2M4.8 11.2l-1.2 1.2"/></svg></button>
+              </div>
+            </div>
+
+            <div class="composer-zona">
+              <div id="beam-wrap" class="beam-wrap">
+                <form id="composer-form" class="composer">
+                  <div id="composer-espera" hidden>
+                    <div class="status-processando" role="status">
+                      <canvas id="orb-processando" class="orb-canvas" data-orb="working" data-orb-tamanho="20" width="20" height="20" aria-hidden="true"></canvas>
+                      <span id="rotulo-processando">Processando ação no Monitor…</span>
+                    </div>
+                    <button type="button" id="btn-parar" class="btn-enviar parar" aria-label="Parar">
+                      <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="2"/></svg>
+                    </button>
+                  </div>
+                  <div id="composer-ativo">
+                    <input id="composer-input" type="text" placeholder="Pergunte ao Resolux ou peça uma ação…" autocomplete="off" aria-label="Mensagem para o Resolux" />
+                    <button type="button" id="btn-mic" class="btn-mic" aria-label="Ditar por voz" aria-pressed="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5"/><path d="M3 7.5a5 5 0 0010 0M8 12.5v2"/></svg></button>
+                    <button type="submit" class="btn-enviar" aria-label="Enviar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg></button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </main>
+
+          <aside class="contexto">
+            <div class="secao-titulo">Contexto ativo</div>
+            <div class="card-contexto vidro">
+              <div class="card-titulo">Janela de contexto</div>
+              <div class="trilho"><div id="preenchimento-painel" class="preenchimento" style="width: 9%"></div></div>
+              <div id="meta-contexto" class="card-meta">9% usado · 18 mil tokens</div>
+            </div>
+            <div class="secao-titulo">Fontes</div>
+            <button class="fonte-item"><svg class="icone-info" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="4" width="9" height="8" rx="2"/><path d="M10.5 7l4-2.5v7L10.5 9" stroke-linejoin="round"/></svg><span class="nome">Câmera</span><span class="estado ativa"><span class="dot sucesso"></span>Ativa</span></button>
+            <button class="fonte-item"><svg class="icone-violeta" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="9" rx="1.5"/><path d="M5.5 14h5" stroke-linecap="round"/></svg><span class="nome">Monitor</span><span class="estado ativa"><span class="dot sucesso"></span>Ativa</span></button>
+            <button class="fonte-item"><svg class="icone-neutro" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4M8 6l3-3M8 6L5 3"/><path d="M2.5 9.5h11v4h-11z"/></svg><span class="nome">Starter</span><span class="estado">Inativa</span></button>
+            <div class="secao-titulo">Memória</div>
+            <div class="card-contexto vidro">
+              <div class="memoria-item"><span class="losango"></span>Prefere respostas em português</div>
+              <div class="memoria-item"><span class="losango"></span>Projeto ativo: Resolux macOS + iOS</div>
+              <button class="btn-revisar">Revisar memória</button>
+            </div>
+          </aside>
+        </section>
+
+        <section id="view-monitor" class="pagina-simples" hidden>
+          <div class="monitor-col">
+            <header class="monitor-header">
+              <div class="monitor-titulo-grupo">
+                <div class="monitor-icone" aria-hidden="true"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="1.5" y="2.5" width="13" height="9" rx="1.5"/><path d="M5.5 14h5"/></svg></div>
+                <div><h1>Monitor Arena</h1><p class="subtitulo">Arena REST · leitura pura</p></div>
+              </div>
+              <span id="monitor-status" class="pill-status">parado</span>
+            </header>
+            <div id="monitor-conteudo"></div>
+          </div>
+        </section>
+
+        <section id="view-ajustes" class="pagina-simples" hidden>
+          <div class="ajustes-col">
+            <header class="ajustes-header"><h1>Ajustes</h1><p class="subtitulo">Sessão do motor — grava na hora, direto no daemon.</p></header>
+            <div id="ajustes-conteudo"></div>
+          </div>
+        </section>
+
+        <section id="view-em-breve" class="pagina-simples" hidden>
+          <main><div class="em-breve vidro"><div id="rotulo-em-breve" class="secao-titulo">Quick Play</div><p>Esta seção ainda não tem tela no cliente web — fora desta tacada. Hoje ela existe só no app nativo.</p></div></main>
+        </section>
+      </div>
+    </div>
+
+    <script type="module" src="/client/main.js"></script>
+  </body>
+</html>

@@ -1,9 +1,3 @@
-import { Meteor } from 'meteor/meteor';
-import { Template } from 'meteor/templating';
-import { Tracker } from 'meteor/tracker';
-import { ReactiveVar } from 'meteor/reactive-var';
-
-import './main.html';
 import './main.css';
 
 import {
@@ -22,8 +16,12 @@ import {
   atualizarMensagem,
   resetarConversa,
   subirContexto,
-} from '/imports/ui/store';
-import { iniciarOrbs } from '/imports/ui/orb';
+  zoomGrade,
+  ajustarZoom,
+  resetarZoom,
+} from '../imports/ui/store';
+import { Sinal } from '../imports/ui/signal';
+import { iniciarOrbs } from '../imports/ui/orb';
 import {
   obterBackend,
   sondarBackend,
@@ -38,24 +36,7 @@ import {
   ultimoPollMonitor,
   erroMonitor,
   assinarMonitorGrade,
-} from '/imports/api';
-import {
-  zoomGrade,
-  ajustarZoom,
-  resetarZoom,
-} from '/imports/ui/store';
-
-// ------------------------------------------------------------
-// Helpers globais
-// ------------------------------------------------------------
-
-Template.registerHelper('contextoPct', () => contextoPct.get());
-Template.registerHelper('navAtiva', (secao) => secaoAtiva.get() === secao);
-Template.registerHelper('estadoOrb', function () {
-  // Dentro de uma mensagem de agente, o orb é fixo (breathing);
-  // fora, segue o estado vivo do agente.
-  return (this && this.estadoOrb) || estadoAgente.get();
-});
+} from '../imports/api';
 
 const ROTULOS_SECAO = {
   quickplay: 'Quick Play',
@@ -66,302 +47,151 @@ const ROTULOS_SECAO = {
   ajustes: 'Ajustes',
 };
 
-Template.app.helpers({
-  assistenteAtiva: () => secaoAtiva.get() === 'assistente',
-  ajustesAtiva: () => secaoAtiva.get() === 'ajustes',
-  monitorAtiva: () => secaoAtiva.get() === 'monitor',
-});
+const FATOR_ZOOM_POR_PX = 0.005;
 
-Template.secaoEmBreve.helpers({
-  rotuloSecao: () => ROTULOS_SECAO[secaoAtiva.get()] || secaoAtiva.get(),
-});
+const el = (id) => document.getElementById(id);
 
-function escaparHtml(s) {
-  return s
+function escaparHtml(valor) {
+  return String(valor ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
 
-// ------------------------------------------------------------
-// Topbar — pílula do motor (daemon real × mock)
-// ------------------------------------------------------------
-
-Template.topbar.helpers({
-  motorRotulo() {
-    const b = backendAtivo.get();
-    if (b === 'daemon') return 'Motor Resolux';
-    if (b === 'mock') return 'Mock local';
-    return 'Sondando motor…';
-  },
-  motorClasse() {
-    const b = backendAtivo.get();
-    if (b === 'daemon') return 'sucesso';
-    if (b === 'mock') return 'marca';
-    return 'neutro';
-  },
-});
-
-Template.topbar.events({
-  'click .nav-pill'(event) {
-    const secao = event.currentTarget.dataset.secao;
-    if (secao) secaoAtiva.set(secao);
-  },
-});
+function horaFormatada(data) {
+  if (!data) return '—';
+  const partes = (n) => String(n).padStart(2, '0');
+  return `${partes(data.getHours())}:${partes(data.getMinutes())}:${partes(data.getSeconds())}`;
+}
 
 // ------------------------------------------------------------
-// Sidebar
+// Topbar e navegação
 // ------------------------------------------------------------
 
-Template.sidebar.helpers({
-  sessoes: () => [
-    { titulo: 'Hello World', meta: 'Assistente · 03:29', ativa: true },
-    { titulo: 'Setup da câmera', meta: 'Ontem' },
-    { titulo: 'Monitor do Arena', meta: 'Segunda-feira' },
-  ],
-});
+function atualizarTopbar() {
+  const backend = backendAtivo.get();
+  const rotulo =
+    backend === 'daemon'
+      ? 'Motor Resolux'
+      : backend === 'mock'
+        ? 'Mock local'
+        : 'Sondando motor…';
+  const classe =
+    backend === 'daemon' ? 'sucesso' : backend === 'mock' ? 'marca' : 'neutro';
 
-Template.sidebar.events({
-  'click .btn-nova'() {
-    resetarConversa();
-  },
-});
-
-// ------------------------------------------------------------
-// Thread
-// ------------------------------------------------------------
-
-Template.thread.helpers({
-  mensagens: () => mensagens.get(),
-  isUsuario() {
-    return this.papel === 'usuario';
-  },
-  trabalhando: () => processando.get() || ouvindo.get(),
-  rotuloTrabalho: () =>
-    ouvindo.get() && !processando.get()
-      ? 'Ouvindo o microfone…'
-      : rotuloTrabalho.get(),
-});
-
-Template.thread.events({
-  'click .acao-rapida'(event) {
-    const texto = event.currentTarget.dataset.acao;
-    if (texto) enviar(texto);
-  },
-  'click .copiar'(event) {
-    const texto = event.currentTarget.dataset.texto || '';
-    if (navigator.clipboard) navigator.clipboard.writeText(texto);
-  },
-});
-
-Template.mensagemAgente.helpers({
-  corpoHtml() {
-    return escaparHtml(this.texto).replace(/\n/g, '<br>');
-  },
-});
-
-// ------------------------------------------------------------
-// Composer
-// ------------------------------------------------------------
-
-Template.composer.helpers({
-  processando: () => processando.get(),
-  focado: () => focado.get(),
-  ouvindo: () => ouvindo.get(),
-  rascunho: () => rascunho.get(),
-  rotuloProcessando: () => rotuloProcessando.get(),
-});
-
-Template.composer.events({
-  'focus #composer-input'() {
-    focado.set(true);
-  },
-  'blur #composer-input'() {
-    focado.set(false);
-  },
-  'input #composer-input'(event) {
-    rascunho.set(event.currentTarget.value);
-  },
-  'submit #composer-form'(event) {
-    event.preventDefault();
-    const input = document.getElementById('composer-input');
-    const texto = (input ? input.value : rascunho.get()).trim();
-    if (!texto) return;
-    rascunho.set('');
-    enviar(texto);
-  },
-  'click #btn-mic'() {
-    alternarVoz();
-  },
-  'click #btn-parar'() {
-    parar();
-  },
-});
-
-// ------------------------------------------------------------
-// Monitor Arena — grade de clips (leitura pura, empurrada pelo motor).
-// A UI ASSINA o monitor na fachada enquanto a seção está aberta; o
-// Blaze recria o template a cada troca de seção, então a assinatura
-// morre com a tela. Lupa: arrastar o mouse na grade amplia/reduz.
-// ------------------------------------------------------------
-
-Template.monitor.onRendered(function () {
-  this.inscricaoMonitor = assinarMonitorGrade();
-});
-
-Template.monitor.onDestroyed(function () {
-  if (this.inscricaoMonitor) this.inscricaoMonitor.cancelar();
-  // Se a tela fechou no meio de um arrasto de zoom, solta os
-  // listeners da janela junto.
-  if (this.zoomAoSoltar) this.zoomAoSoltar();
-});
-
-Template.monitor.helpers({
-  grade: () => gradeMonitor.get(),
-  ehMock: () => backendAtivo.get() === 'mock',
-  erroMonitor: () => erroMonitor.get(),
-  monitorOk: () => estadoMonitor.get() === 'ok',
-  monitorErro: () => estadoMonitor.get() === 'erro',
-  monitorStatus() {
-    switch (estadoMonitor.get()) {
-      case 'ok':
-        return 'conectado';
-      case 'pollando':
-        return 'pollando…';
-      case 'erro':
-        return 'offline';
-      default:
-        return 'parado';
-    }
-  },
-  horaUltimoPoll() {
-    const d = ultimoPollMonitor.get();
-    if (!d) return '—';
-    const p = (n) => String(n).padStart(2, '0');
-    return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
-  },
-  contagemClips() {
-    const grade = gradeMonitor.get();
-    if (!grade) return '0 clips';
-    const total = grade.camadas.reduce(
-      (n, c) => n + c.celulas.filter((cel) => cel.preenchido).length,
-      0,
-    );
-    return `${total} clips`;
-  },
-  zoomGrade: () => zoomGrade.get(),
-  zoomPct: () => `${Math.round(zoomGrade.get() * 100)}%`,
-});
-
-// Quanto o zoom ganha por pixel de arrasto: 0,5%/px a partir do
-// zoom onde o gesto começou. Duplo clique volta ao 100%.
-const FATOR_ZOOM_POR_PX = 0.005;
-
-Template.monitor.events({
-  'mousedown .grade-card'(evento, instancia) {
-    if (evento.button !== 0) return;
-    evento.preventDefault();
-    const cartao = evento.currentTarget;
-    const x0 = evento.clientX;
-    const zoom0 = zoomGrade.get();
-    cartao.classList.add('arrastando');
-
-    const aoMover = (e) => {
-      ajustarZoom(zoom0 * (1 + (e.clientX - x0) * FATOR_ZOOM_POR_PX));
-    };
-    const aoSoltar = () => {
-      window.removeEventListener('mousemove', aoMover);
-      window.removeEventListener('mouseup', aoSoltar);
-      cartao.classList.remove('arrastando');
-      instancia.zoomAoSoltar = null;
-    };
-    instancia.zoomAoSoltar = aoSoltar;
-    window.addEventListener('mousemove', aoMover);
-    window.addEventListener('mouseup', aoSoltar);
-  },
-  'dblclick .grade-card'() {
-    resetarZoom();
-  },
-});
-
-// ------------------------------------------------------------
-// Ajustes — sessão do motor (GET/PATCH /api/v1/session)
-// ------------------------------------------------------------
-
-// A v1 não devolve a allowlist no GET /session — só aceita no PATCH.
-// Então a visão da lista é local desta aba (null = todas); a tela
-// avisa disso em vez de fingir que leu o estado do motor.
-const allowlistVisao = new ReactiveVar(null);
-
-Template.ajustes.helpers({
-  sessao: () => sessaoMotor.get(),
-  erroSessao: () => erroSessao.get(),
-  salvando: () => salvandoSessao.get(),
-  motorEhMock: () => backendAtivo.get() === 'mock',
-  ferramentas: () => ferramentasMotor.get(),
-  todasFerramentas: () => allowlistVisao.get() === null,
-  // Mustache sozinho em posição de atributo precisa devolver um
-  // dicionário nome→valor (ou {} para nenhum); string solta quebra.
-  attrTodas: () => (allowlistVisao.get() === null ? { checked: true } : {}),
-  modoEh: (modo) => (sessaoMotor.get() || {}).mode === modo,
-  backendEh: (b) => (sessaoMotor.get() || {}).backend === b,
-  attrFerramentaMarcada(nome) {
-    const lista = allowlistVisao.get();
-    return lista !== null && lista.includes(nome) ? { checked: true } : {};
-  },
-  contagemFerramentas() {
-    const total = ferramentasMotor.get().length;
-    const lista = allowlistVisao.get();
-    if (lista === null) return `${total} de ${total}`;
-    return `${lista.length} de ${total}`;
-  },
-});
-
-Template.ajustes.events({
-  'click .seg[data-modo]'(event) {
-    atualizarSessao({ mode: event.currentTarget.dataset.modo });
-  },
-  'click .seg[data-backend]'(event) {
-    atualizarSessao({ backend: event.currentTarget.dataset.backend });
-  },
-  'change #campo-modelo'(event) {
-    const model = event.currentTarget.value.trim();
-    if (model) atualizarSessao({ model });
-  },
-  'change #chk-todas'(event) {
-    if (event.currentTarget.checked) {
-      allowlistVisao.set(null);
-      atualizarSessao({ toolAllowlist: null });
-    } else {
-      // Sai de "todas" começando da lista completa anunciada pelo motor.
-      const lista = ferramentasMotor.get().map((t) => t.name);
-      allowlistVisao.set(lista);
-      atualizarSessao({ toolAllowlist: lista });
-    }
-  },
-  'change .chk-ferramenta'() {
-    const marcadas = Array.from(
-      document.querySelectorAll('.chk-ferramenta:checked'),
-    ).map((el) => el.value);
-    allowlistVisao.set(marcadas);
-    atualizarSessao({ toolAllowlist: marcadas });
-  },
-});
-
-// ------------------------------------------------------------
-// Fluxo do agente via fachada de backend (daemon real ou mock).
-// A UI só conhece callbacks; quem responde é decisão da sonda.
-// ------------------------------------------------------------
-
-let turnoAtual = null;
-
-function rolarThread() {
-  Tracker.afterFlush(() => {
-    const el = document.getElementById('thread-scroll');
-    if (el) el.scrollTop = el.scrollHeight;
+  el('motor-rotulo').textContent = rotulo;
+  el('motor-dot').className = `dot ${classe}`;
+  document.querySelectorAll('.nav-pill').forEach((botao) => {
+    botao.classList.toggle('ativa', botao.dataset.secao === secaoAtiva.get());
   });
 }
+
+function atualizarVisao() {
+  const secao = secaoAtiva.get();
+  el('view-assistente').hidden = secao !== 'assistente';
+  el('view-monitor').hidden = secao !== 'monitor';
+  el('view-ajustes').hidden = secao !== 'ajustes';
+  el('view-em-breve').hidden = !['quickplay', 'camera', 'starter'].includes(secao);
+  if (!el('view-em-breve').hidden) {
+    el('rotulo-em-breve').textContent = ROTULOS_SECAO[secao] || secao;
+  }
+  el('app-body').classList.toggle('app-body-simples', secao !== 'assistente');
+
+  if (secao === 'monitor') iniciarMonitor();
+  if (secao === 'ajustes') renderAjustes();
+}
+
+// ------------------------------------------------------------
+// Assistente
+// ------------------------------------------------------------
+
+function htmlMensagem(mensagem) {
+  if (mensagem.papel === 'usuario') {
+    return `
+      <div class="msg-usuario">
+        <span class="autor">LUIZINHO</span>
+        <div class="bolha">${escaparHtml(mensagem.texto)}</div>
+        <span class="hora">${escaparHtml(mensagem.hora)}</span>
+      </div>
+    `;
+  }
+
+  const estadoOrb = mensagem.estadoOrb || 'breathing';
+  return `
+    <article class="msg-agente vidro">
+      <header class="cabecalho">
+        <canvas class="orb-canvas" data-orb="${estadoOrb}" data-orb-tamanho="20" width="20" height="20" role="img" aria-label="Resolux ${estadoOrb}"></canvas>
+        <span class="nome">RESOLUX</span>
+        <span class="badge-pro">Pro</span>
+      </header>
+      <div class="corpo">${escaparHtml(mensagem.texto).replace(/\n/g, '<br>')}</div>
+      <footer class="rodape">
+        <span class="meta">${escaparHtml(mensagem.hora)} · ${mensagem.tokens ?? 0} tokens</span>
+        <div class="acoes">
+          <button class="acao-circ" aria-label="Ramificar conversa" title="Ramificar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="4" r="1.8"/><circle cx="4" cy="12" r="1.8"/><circle cx="12" cy="6" r="1.8"/><path d="M4 5.8v4.4M4 10c0-2.5 4-1.5 6.2-2.6"/></svg></button>
+          <button class="acao-circ" aria-label="Buscar na conversa" title="Buscar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg></button>
+          <button class="acao-circ" aria-label="Ouvir resposta" title="Ouvir"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.5v3h2.5L9 13V3L5 6.5H2.5z"/><path d="M11.5 5.5a3.5 3.5 0 010 5M13.2 4a6 6 0 010 8"/></svg></button>
+          <button class="acao-circ copiar" data-texto="${escaparHtml(mensagem.texto)}" aria-label="Copiar resposta" title="Copiar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5A1.5 1.5 0 009 1.5H4A1.5 1.5 0 002.5 3v5A1.5 1.5 0 004 9.5h.5"/></svg></button>
+        </div>
+      </footer>
+    </article>
+  `;
+}
+
+function renderMensagens() {
+  el('lista-mensagens').innerHTML = mensagens.get().map(htmlMensagem).join('');
+  rolarThread();
+}
+
+function atualizarTrabalho() {
+  const trabalhando = processando.get() || ouvindo.get();
+  const status = el('status-trabalho');
+  status.hidden = !trabalhando;
+  if (!trabalhando) return;
+
+  const estado = estadoAgente.get();
+  const rotulo = ouvindo.get() && !processando.get()
+    ? 'Ouvindo o microfone…'
+    : rotuloTrabalho.get();
+  const canvas = el('orb-status');
+  canvas.dataset.orb = estado;
+  canvas.setAttribute('aria-label', `Resolux ${estado}`);
+  el('rotulo-trabalho').textContent = rotulo;
+  el('rotulo-estado').textContent = estado;
+  el('rotulo-estado').className = `rotulo-estado ${estado}`;
+  iniciarOrbs();
+}
+
+function atualizarComposer() {
+  const ativo = processando.get();
+  el('beam-wrap').classList.toggle('beam-ativo', ativo);
+  el('composer-form').classList.toggle('focado', focado.get());
+  el('composer-espera').hidden = !ativo;
+  el('composer-ativo').hidden = ativo;
+  el('rotulo-processando').textContent = rotuloProcessando.get();
+  const mic = el('btn-mic');
+  mic.classList.toggle('ouvindo', ouvindo.get());
+  mic.setAttribute('aria-pressed', String(ouvindo.get()));
+  mic.setAttribute('aria-label', ouvindo.get() ? 'Parar ditado' : 'Ditar por voz');
+}
+
+function atualizarContexto() {
+  const pct = contextoPct.get();
+  el('preenchimento-contexto').style.width = `${pct}%`;
+  el('preenchimento-painel').style.width = `${pct}%`;
+  el('pct-contexto').textContent = `${pct}%`;
+  el('meta-contexto').textContent = `${pct}% usado · 18 mil tokens`;
+}
+
+function rolarThread() {
+  requestAnimationFrame(() => {
+    const area = el('thread-scroll');
+    if (area) area.scrollTop = area.scrollHeight;
+  });
+}
+
+let turnoAtual = null;
 
 function enviar(texto) {
   if (processando.get()) return;
@@ -371,8 +201,6 @@ function enviar(texto) {
   }
 
   adicionarMensagem({ papel: 'usuario', texto, hora: horaAgora() });
-  rolarThread();
-
   processando.set(true);
   estadoAgente.set('working');
   rotuloTrabalho.set('Enviando ao motor…');
@@ -380,7 +208,6 @@ function enviar(texto) {
   rolarThread();
 
   let msgId = null;
-
   const garantirMensagem = () => {
     if (msgId != null) return msgId;
     adicionarMensagem({
@@ -391,8 +218,7 @@ function enviar(texto) {
       estadoOrb: 'breathing',
       streaming: true,
     });
-    rolarThread();
-    msgId = mensagens.get()[mensagens.get().length - 1].id;
+    msgId = mensagens.get().at(-1).id;
     return msgId;
   };
 
@@ -406,15 +232,12 @@ function enviar(texto) {
 
   turnoAtual = obterBackend().enviarChat(texto, {
     onStarted(info) {
-      // O mock informa os rótulos por ação; o daemon real não tem
-      // eventos intermediários na v1, então fica o rótulo neutro.
       if (info) {
         rotuloTrabalho.set(info.trabalho);
         rotuloProcessando.set(info.processo);
       } else {
         rotuloTrabalho.set('Turno com o motor — isso leva minutos, não segundos…');
       }
-      rolarThread();
     },
     onComposing() {
       estadoAgente.set('composing');
@@ -424,7 +247,6 @@ function enviar(texto) {
       const id = garantirMensagem();
       estadoAgente.set('composing');
       atualizarMensagem(id, { texto: parcial, tokens });
-      rolarThread();
     },
     onFinal(texto) {
       const id = garantirMensagem();
@@ -451,13 +273,11 @@ function parar() {
     turnoAtual.cancelar();
     turnoAtual = null;
   }
-  // Se havia uma resposta em streaming, congela o texto parcial
-  const lista = mensagens.get();
-  const ultima = lista[lista.length - 1];
+  const ultima = mensagens.get().at(-1);
   if (ultima && ultima.streaming) {
     atualizarMensagem(ultima.id, {
       streaming: false,
-      texto: ultima.texto ? ultima.texto + ' …(interrompido)' : '(resposta interrompida)',
+      texto: ultima.texto ? `${ultima.texto} …(interrompido)` : '(resposta interrompida)',
     });
   }
   processando.set(false);
@@ -475,18 +295,271 @@ function alternarVoz() {
 }
 
 // ------------------------------------------------------------
-// Boot
+// Monitor
 // ------------------------------------------------------------
 
-Meteor.startup(() => {
-  sondarBackend();
+let inscricaoMonitor = null;
+
+function iniciarMonitor() {
+  if (!inscricaoMonitor) inscricaoMonitor = assinarMonitorGrade();
+  renderMonitor();
+}
+
+function pararMonitor() {
+  if (inscricaoMonitor) {
+    inscricaoMonitor.cancelar();
+    inscricaoMonitor = null;
+  }
+}
+
+function renderMonitor() {
+  const grade = gradeMonitor.get();
+  const erro = erroMonitor.get();
+  const status = estadoMonitor.get();
+  const backend = backendAtivo.get();
+  const pill = el('monitor-status');
+  pill.textContent = status === 'ok' ? 'conectado' : status === 'pollando' ? 'pollando…' : status === 'erro' ? 'offline' : 'parado';
+  pill.className = `pill-status ${status === 'ok' ? 'pill-sucesso' : status === 'erro' ? 'pill-alerta' : ''}`;
+
+  if (!grade) {
+    el('monitor-conteudo').innerHTML = erro
+      ? `<div class="em-breve vidro"><div class="secao-titulo">Monitor indisponível</div><p><strong>${escaparHtml(erro)}</strong> Sem uma grade boa em memória para mostrar.</p></div>`
+      : `<div class="em-breve vidro"><div class="secao-titulo">Sondando o Arena…</div><p>Primeiro poll da grade ainda não voltou.</p></div>`;
+    return;
+  }
+
+  const totalClips = grade.camadas.reduce((total, camada) => total + camada.celulas.filter((celula) => celula.preenchido).length, 0);
+  const linhas = grade.camadas.map((camada) => {
+    const celulas = camada.celulas.map((celula) => {
+      const classes = ['clip-celula'];
+      if (celula.ativo) classes.push('ativo');
+      if (!celula.preenchido) classes.push('vazio');
+      if (celula.thumbUrl) classes.push('com-thumb');
+      const titulo = celula.preenchido ? `${celula.id} · ${celula.nome}` : `${celula.id} · slot vazio`;
+      const conteudo = celula.thumbUrl
+        ? `<img class="clip-thumb" src="${escaparHtml(celula.thumbUrl)}" alt="" loading="lazy" draggable="false" onerror="this.classList.add('thumb-falha')">`
+        : '';
+      const nome = celula.preenchido
+        ? `<span class="clip-nome">${escaparHtml(celula.nome)}</span>`
+        : '<span class="clip-vazio" aria-hidden="true">—</span>';
+      return `<div class="${classes.join(' ')}" title="${escaparHtml(titulo)}">${conteudo}${nome}</div>`;
+    }).join('');
+    return `<div class="camada"><div class="camada-rotulo">camada ${camada.numero}</div><div class="camada-linha" style="--zoom: ${zoomGrade.get()}">${celulas}</div></div>`;
+  }).join('');
+
+  el('monitor-conteudo').innerHTML = `
+    <div class="monitor-live">
+      ${grade.ativo ? `<span class="clip-ativo-nome">${escaparHtml(grade.ativo.nome)}</span><span class="clip-ativo-endereco">tocando em ${escaparHtml(grade.ativo.endereco)}</span>` : '<span class="clip-ativo-nome neutro">nenhum clip tocando</span>'}
+      <span class="ultimo-poll">último poll ${horaFormatada(ultimoPollMonitor.get())}</span>
+    </div>
+    ${backend === 'mock' ? '<p class="nota-mock">Mock local: grade de exemplo, sem Arena de verdade — por isso não há thumbnails. Com o daemon de pé, a grade e as thumbs vêm do proxy read-only <code>/api/v1/arena/**</code>.</p>' : ''}
+    ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Monitor falhou:</strong> ${escaparHtml(erro)}</div>` : ''}
+    <section class="grade-card vidro">
+      <div class="card-titulo-linha">
+        <h2>Grade de clips</h2>
+        <div class="grade-pills">
+          <span id="zoom-pill" class="pill-status" title="Zoom da grade (arraste com o mouse)">${Math.round(zoomGrade.get() * 100)}%</span>
+          <span class="pill-status">${totalClips} clips</span>
+        </div>
+      </div>
+      ${linhas}
+      <div class="grade-rodape">Lupa: segure e arraste na grade — pra direita amplia, pra esquerda reduz. Duplo clique volta ao 100%.</div>
+    </section>
+  `;
   iniciarOrbs();
-  // Rescaneia os canvases após qualquer re-render do Blaze
-  Tracker.autorun(() => {
-    mensagens.get();
-    processando.get();
-    ouvindo.get();
-    estadoAgente.get();
-    Tracker.afterFlush(() => iniciarOrbs());
+}
+
+function aoSoltarZoom() {
+  window.removeEventListener('mousemove', aoMoverZoom);
+  window.removeEventListener('mouseup', aoSoltarZoom);
+  const cartao = document.querySelector('.grade-card');
+  if (cartao) cartao.classList.remove('arrastando');
+}
+
+function aoMoverZoom(evento) {
+  ajustarZoom(zoomGrade.get() * (1 + evento.movementX * FATOR_ZOOM_POR_PX));
+}
+
+// ------------------------------------------------------------
+// Ajustes
+// ------------------------------------------------------------
+
+const allowlistVisao = new Sinal(null);
+
+function renderAjustes() {
+  const sessao = sessaoMotor.get();
+  const erro = erroSessao.get();
+  const salvando = salvandoSessao.get();
+  const mock = backendAtivo.get() === 'mock';
+  const ferramentas = ferramentasMotor.get();
+  const lista = allowlistVisao.get();
+  const contagem = lista === null ? `${ferramentas.length} de ${ferramentas.length}` : `${lista.length} de ${ferramentas.length}`;
+
+  let conteudo = erro ? `<div class="aviso-erro vidro" role="alert"><strong>Motor recusou:</strong> ${escaparHtml(erro)}</div>` : '';
+  if (!sessao) {
+    conteudo += `<div class="aviso-erro vidro"><strong>Sessão indisponível.</strong> O motor não respondeu ao <code>GET /api/v1/session</code>.${erro ? '' : ' Tente recarregar a página para sondar de novo.'}</div>`;
+    el('ajustes-conteudo').innerHTML = conteudo;
+    return;
+  }
+
+  const linhasFerramentas = ferramentas.map((ferramenta) => {
+    const marcada = lista !== null && lista.includes(ferramenta.name);
+    return `<label class="linha-check ferramenta"><input type="checkbox" class="chk-ferramenta" value="${escaparHtml(ferramenta.name)}"${marcada ? ' checked' : ''}><span class="nome-ferramenta">${escaparHtml(ferramenta.name)}</span><span class="desc-ferramenta">${escaparHtml(ferramenta.description)}</span></label>`;
+  }).join('');
+
+  conteudo += `
+    <section class="card-ajuste vidro">
+      <div class="card-titulo-linha">
+        <h2>Motor</h2>
+        <span class="pill-status ${mock ? 'pill-alerta' : ''}">${salvando ? 'Salvando…' : `${escaparHtml(sessao.backend)} · ${escaparHtml(sessao.model)}`}</span>
+      </div>
+      ${mock ? '<p class="nota-mock">Mock local: estas mudanças vivem só nesta aba e somem ao recarregar. Com o daemon de pé, valem na sessão real.</p>' : ''}
+      <div class="campo">
+        <label>Modo de operação</label>
+        <div class="segmented" role="group" aria-label="Modo de operação">
+          <button class="seg ${sessao.mode === 'timeline' ? 'seg-ativo' : ''}" data-modo="timeline">Timeline <span class="seg-sub">Calcula</span></button>
+          <button class="seg ${sessao.mode === 'performance' ? 'seg-ativo' : ''}" data-modo="performance">Performance <span class="seg-sub">Mede</span></button>
+        </div>
+      </div>
+      <div class="campo">
+        <label>Backend do assistente</label>
+        <div class="segmented" role="group" aria-label="Backend do assistente">
+          <button class="seg ${sessao.backend === 'ollama' ? 'seg-ativo' : ''}" data-backend="ollama">Ollama</button>
+          <button class="seg ${sessao.backend === 'applefm' ? 'seg-ativo' : ''}" data-backend="applefm">Apple FM</button>
+        </div>
+      </div>
+      <div class="campo"><label for="campo-modelo">Modelo</label><input id="campo-modelo" class="campo-texto" type="text" value="${escaparHtml(sessao.model)}" spellcheck="false" autocomplete="off"></div>
+      <div class="campo"><label>Política de escrita</label><div class="politica-leitura"><span class="dot marca" aria-hidden="true"></span>Somente leitura — fixo na v1 do contrato. Escrita só aparece aqui quando o operador mudar esse voto.</div></div>
+      <div class="card-meta-linha">${sessao.toolsAllowed} ferramentas visíveis ao modelo · journal ${sessao.journalEnabled ? 'ligado' : 'desligado'}</div>
+    </section>
+    <section class="card-ajuste vidro">
+      <div class="card-titulo-linha"><h2>Ferramentas do Arena</h2><span class="pill-status">${contagem}</span></div>
+      <label class="linha-check"><input type="checkbox" id="chk-todas"${lista === null ? ' checked' : ''}>Todas as ferramentas visíveis</label>
+      ${lista !== null ? (ferramentas.length ? `<div class="lista-ferramentas">${linhasFerramentas}</div>` : `<p class="nota-mock">Nenhuma ferramenta anunciada pelo motor${mock ? ' (o mock não tem ferramentas do Arena)' : ''}.</p>`) : ''}
+    </section>
+  `;
+  el('ajustes-conteudo').innerHTML = conteudo;
+}
+
+// ------------------------------------------------------------
+// Eventos e boot
+// ------------------------------------------------------------
+
+function registrarEventos() {
+  document.addEventListener('click', (evento) => {
+    const nav = evento.target.closest('.nav-pill');
+    if (nav?.dataset.secao) secaoAtiva.set(nav.dataset.secao);
+    if (evento.target.closest('#btn-nova')) resetarConversa();
+
+    const acaoRapida = evento.target.closest('.acao-rapida');
+    if (acaoRapida?.dataset.acao) enviar(acaoRapida.dataset.acao);
+
+    const copiar = evento.target.closest('.copiar');
+    if (copiar?.dataset.texto && navigator.clipboard) navigator.clipboard.writeText(copiar.dataset.texto);
+
+    const modo = evento.target.closest('.seg[data-modo]');
+    if (modo) atualizarSessao({ mode: modo.dataset.modo });
+
+    const backend = evento.target.closest('.seg[data-backend]');
+    if (backend) atualizarSessao({ backend: backend.dataset.backend });
   });
-});
+
+  el('composer-form').addEventListener('submit', (evento) => {
+    evento.preventDefault();
+    const texto = el('composer-input').value.trim();
+    if (!texto) return;
+    rascunho.set('');
+    enviar(texto);
+  });
+  el('composer-input').addEventListener('input', (evento) => rascunho.set(evento.target.value));
+  el('composer-input').addEventListener('focus', () => focado.set(true));
+  el('composer-input').addEventListener('blur', () => focado.set(false));
+  el('btn-mic').addEventListener('click', alternarVoz);
+  el('btn-parar').addEventListener('click', parar);
+
+  const viewMonitor = el('view-monitor');
+  viewMonitor.addEventListener('mousedown', (evento) => {
+    const cartao = evento.target.closest('.grade-card');
+    if (!cartao || evento.button !== 0) return;
+    evento.preventDefault();
+    cartao.classList.add('arrastando');
+    window.addEventListener('mousemove', aoMoverZoom);
+    window.addEventListener('mouseup', aoSoltarZoom);
+  });
+  viewMonitor.addEventListener('dblclick', (evento) => {
+    if (evento.target.closest('.grade-card')) resetarZoom();
+  });
+
+  el('view-ajustes').addEventListener('change', (evento) => {
+    if (evento.target.id === 'campo-modelo') {
+      const model = evento.target.value.trim();
+      if (model) atualizarSessao({ model });
+      return;
+    }
+    if (evento.target.id === 'chk-todas') {
+      if (evento.target.checked) {
+        allowlistVisao.set(null);
+        atualizarSessao({ toolAllowlist: null });
+      } else {
+        const lista = ferramentasMotor.get().map((ferramenta) => ferramenta.name);
+        allowlistVisao.set(lista);
+        atualizarSessao({ toolAllowlist: lista });
+      }
+      return;
+    }
+    if (evento.target.classList.contains('chk-ferramenta')) {
+      const marcadas = [...document.querySelectorAll('.chk-ferramenta:checked')].map((campo) => campo.value);
+      allowlistVisao.set(marcadas);
+      atualizarSessao({ toolAllowlist: marcadas });
+    }
+  });
+}
+
+function registrarAssinaturas() {
+  secaoAtiva.assinar(() => {
+    atualizarTopbar();
+    atualizarVisao();
+    if (secaoAtiva.get() !== 'monitor') pararMonitor();
+  });
+  backendAtivo.assinar(atualizarTopbar);
+  mensagens.assinar(renderMensagens);
+  processando.assinar(atualizarTrabalho);
+  ouvindo.assinar(() => {
+    atualizarTrabalho();
+    atualizarComposer();
+  });
+  focado.assinar(atualizarComposer);
+  estadoAgente.assinar(atualizarTrabalho);
+  rotuloTrabalho.assinar(atualizarTrabalho);
+  rotuloProcessando.assinar(atualizarComposer);
+  contextoPct.assinar(atualizarContexto);
+
+  estadoMonitor.assinar(renderMonitor);
+  gradeMonitor.assinar(renderMonitor);
+  ultimoPollMonitor.assinar(renderMonitor);
+  erroMonitor.assinar(renderMonitor);
+  backendAtivo.assinar(renderMonitor);
+  zoomGrade.assinar((valor) => {
+    document.querySelectorAll('.camada-linha').forEach((linha) => linha.style.setProperty('--zoom', String(valor)));
+    const pill = el('zoom-pill');
+    if (pill) pill.textContent = `${Math.round(valor * 100)}%`;
+  });
+
+  sessaoMotor.assinar(renderAjustes);
+  ferramentasMotor.assinar(renderAjustes);
+  salvandoSessao.assinar(renderAjustes);
+  erroSessao.assinar(renderAjustes);
+  backendAtivo.assinar(renderAjustes);
+  allowlistVisao.assinar(renderAjustes);
+}
+
+registrarEventos();
+registrarAssinaturas();
+atualizarTopbar();
+atualizarVisao();
+renderMensagens();
+atualizarTrabalho();
+atualizarComposer();
+atualizarContexto();
+iniciarOrbs();
+sondarBackend();

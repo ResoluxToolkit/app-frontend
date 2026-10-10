@@ -4,17 +4,17 @@
 // — esconder de qual motor veio a resposta é bug de produto.
 // ------------------------------------------------------------
 
-import { ReactiveVar } from 'meteor/reactive-var';
+import { Sinal } from '../ui/signal.js';
 
-import { ResoluxDaemon } from '/imports/api/client';
-import { MockDaemon } from '/imports/api/mock';
-import { montarGrade } from '/imports/ui/grade';
+import { ResoluxDaemon } from './client.js';
+import { MockDaemon } from './mock.js';
+import { montarGrade } from '../ui/grade.js';
 
 const daemon = new ResoluxDaemon();
 const mock = new MockDaemon();
 
 // 'sondando' | 'daemon' | 'mock'
-export const backendAtivo = new ReactiveVar('sondando');
+export const backendAtivo = new Sinal('sondando');
 
 let escolhido = mock;
 
@@ -26,10 +26,10 @@ export function obterBackend() {
 // Sessão do motor (GET/PATCH /api/v1/session)
 // ------------------------------------------------------------
 
-export const sessaoMotor = new ReactiveVar(null);
-export const ferramentasMotor = new ReactiveVar([]);
-export const salvandoSessao = new ReactiveVar(false);
-export const erroSessao = new ReactiveVar(null);
+export const sessaoMotor = new Sinal(null);
+export const ferramentasMotor = new Sinal([]);
+export const salvandoSessao = new Sinal(false);
+export const erroSessao = new Sinal(null);
 
 export async function carregarSessao() {
   try {
@@ -83,10 +83,10 @@ export async function sondarBackend() {
 // ------------------------------------------------------------
 
 // 'parado' | 'pollando' | 'ok' | 'erro'
-export const estadoMonitor = new ReactiveVar('parado');
-export const gradeMonitor = new ReactiveVar(null);
-export const ultimoPollMonitor = new ReactiveVar(null);
-export const erroMonitor = new ReactiveVar(null);
+export const estadoMonitor = new Sinal('parado');
+export const gradeMonitor = new Sinal(null);
+export const ultimoPollMonitor = new Sinal(null);
+export const erroMonitor = new Sinal(null);
 
 // Retorna { cancelar() }. Quem abre a tela assina; quem fecha cancela.
 export function assinarMonitorGrade() {

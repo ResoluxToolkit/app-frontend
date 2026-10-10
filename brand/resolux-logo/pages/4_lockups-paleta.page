@@ -1,0 +1,261 @@
+pageType: content
+background:
+  type: solid
+  color: "$fundo"
+elements:
+  - elementId: rotulo-topo
+    elementType: text
+    bounds: [48, 40, 320, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      letterSpacing: 4
+      align: [left, middle]
+      wrap: false
+      text: RESOLUX · IDENTIDADE
+
+  # Divisória vertical
+  - elementId: divisoria
+    elementType: line
+    bounds: [620, 120, 1, 520]
+    viewBox: [1, 520]
+    points: "0,0 0,520"
+    border: {style: solid, width: 1, color: "$hairline"}
+
+  # Lockup horizontal
+  - elementId: rotulo-lockup-h
+    elementType: text
+    bounds: [80, 120, 300, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      align: [left, middle]
+      wrap: false
+      text: lockup horizontal
+  - elementId: lockup-h-anel
+    elementType: shape
+    bounds: [80, 152, 96, 96]
+    shapeName: donut
+    adjustments: [34000]
+    fill:
+      type: gradient
+      gradientType: linear
+      angle: 45
+      stops:
+        - {position: 0, color: "$marca"}
+        - {position: 1, color: "$violeta"}
+  - elementId: lockup-h-nucleo
+    elementType: shape
+    bounds: [130, 175, 23, 23]
+    shapeName: ellipse
+    fill: {type: solid, color: "$marca"}
+  - elementId: lockup-h-word
+    elementType: text
+    bounds: [200, 160, 340, 80]
+    content:
+      fontFamily: Liter
+      fontSize: 64
+      bold: true
+      color: "$texto"
+      letterSpacing: 1
+      align: [left, middle]
+      wrap: false
+      text: resolux
+
+  # Lockup vertical
+  - elementId: rotulo-lockup-v
+    elementType: text
+    bounds: [80, 320, 300, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      align: [left, middle]
+      wrap: false
+      text: lockup vertical
+  - elementId: lockup-v-anel
+    elementType: shape
+    bounds: [190, 356, 120, 120]
+    shapeName: donut
+    adjustments: [34000]
+    fill:
+      type: gradient
+      gradientType: linear
+      angle: 45
+      stops:
+        - {position: 0, color: "$marca"}
+        - {position: 1, color: "$violeta"}
+  - elementId: lockup-v-nucleo
+    elementType: shape
+    bounds: [252, 385, 29, 29]
+    shapeName: ellipse
+    fill: {type: solid, color: "$marca"}
+  - elementId: lockup-v-word
+    elementType: text
+    bounds: [130, 492, 240, 54]
+    content:
+      fontFamily: Liter
+      fontSize: 42
+      bold: true
+      color: "$texto"
+      align: [center, middle]
+      wrap: false
+      text: resolux
+
+  # Paleta de tokens (idêntica ao client/main.css)
+  - elementId: rotulo-paleta
+    elementType: text
+    bounds: [680, 120, 320, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      align: [left, middle]
+      wrap: false
+      text: tokens de cor (client/main.css)
+
+  - elementId: chip-marca
+    elementType: shape
+    bounds: [680, 152, 56, 56]
+    shapeName: roundRect
+    adjustments: [14000]
+    fill: {type: solid, color: "$marca"}
+  - elementId: chip-marca-nome
+    elementType: text
+    bounds: [756, 160, 260, 22]
+    content:
+      fontFamily: Liter
+      fontSize: 16
+      color: "$texto"
+      align: [left, middle]
+      wrap: false
+      text: --marca
+  - elementId: chip-marca-hex
+    elementType: text
+    bounds: [756, 184, 260, 18]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto2"
+      align: [left, middle]
+      wrap: false
+      text: "#F26B33"
+
+  - elementId: chip-violeta
+    elementType: shape
+    bounds: [680, 232, 56, 56]
+    shapeName: roundRect
+    adjustments: [14000]
+    fill: {type: solid, color: "$violeta"}
+  - elementId: chip-violeta-nome
+    elementType: text
+    bounds: [756, 240, 260, 22]
+    content:
+      fontFamily: Liter
+      fontSize: 16
+      color: "$texto"
+      align: [left, middle]
+      wrap: false
+      text: --violeta
+  - elementId: chip-violeta-hex
+    elementType: text
+    bounds: [756, 264, 260, 18]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto2"
+      align: [left, middle]
+      wrap: false
+      text: "#BF5AF2"
+
+  - elementId: chip-fundo
+    elementType: shape
+    bounds: [680, 312, 56, 56]
+    shapeName: roundRect
+    adjustments: [14000]
+    fill: {type: solid, color: "$fundo"}
+    border: {style: solid, width: 1, color: "#FFFFFF26"}
+  - elementId: chip-fundo-nome
+    elementType: text
+    bounds: [756, 320, 260, 22]
+    content:
+      fontFamily: Liter
+      fontSize: 16
+      color: "$texto"
+      align: [left, middle]
+      wrap: false
+      text: --fundo
+  - elementId: chip-fundo-hex
+    elementType: text
+    bounds: [756, 344, 260, 18]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto2"
+      align: [left, middle]
+      wrap: false
+      text: "#0A0A0D"
+
+  - elementId: chip-texto
+    elementType: shape
+    bounds: [680, 392, 56, 56]
+    shapeName: roundRect
+    adjustments: [14000]
+    fill: {type: solid, color: "$texto"}
+  - elementId: chip-texto-nome
+    elementType: text
+    bounds: [756, 400, 260, 22]
+    content:
+      fontFamily: Liter
+      fontSize: 16
+      color: "$texto"
+      align: [left, middle]
+      wrap: false
+      text: --texto
+  - elementId: chip-texto-hex
+    elementType: text
+    bounds: [756, 424, 260, 18]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto2"
+      align: [left, middle]
+      wrap: false
+      text: "#F5F5F7"
+
+  # Barra do gradiente do símbolo
+  - elementId: chip-gradiente
+    elementType: shape
+    bounds: [680, 488, 360, 40]
+    shapeName: roundRect
+    adjustments: [20000]
+    fill:
+      type: gradient
+      gradientType: linear
+      angle: 0
+      stops:
+        - {position: 0, color: "$marca"}
+        - {position: 1, color: "$violeta"}
+  - elementId: chip-gradiente-label
+    elementType: text
+    bounds: [680, 540, 400, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      align: [left, middle]
+      wrap: false
+      text: gradiente do símbolo · 45° no orbe
+
+  - elementId: rotulo-base
+    elementType: text
+    bounds: [48, 664, 480, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      align: [left, middle]
+      wrap: false
+      text: 04 — Lockups e paleta

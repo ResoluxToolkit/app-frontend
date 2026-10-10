@@ -1,0 +1,101 @@
+pageType: cover
+background:
+  type: solid
+  color: "$fundo"
+elements:
+  # Aurora de fundo (opacidade máx. ~14%, como no app)
+  - elementId: aurora-marca
+    elementType: shape
+    bounds: [-260, -320, 820, 660]
+    shapeName: ellipse
+    fill:
+      type: gradient
+      gradientType: radial
+      stops:
+        - {position: 0, color: "#F26B3324"}
+        - {position: 1, color: "#F26B3300"}
+  - elementId: aurora-violeta
+    elementType: shape
+    bounds: [720, 380, 900, 720]
+    shapeName: ellipse
+    fill:
+      type: gradient
+      gradientType: radial
+      stops:
+        - {position: 0, color: "#BF5AF21F"}
+        - {position: 1, color: "#BF5AF200"}
+
+  # Símbolo: anel do orbe (gradiente marca -> violeta)
+  - elementId: simbolo-anel
+    elementType: shape
+    bounds: [530, 140, 220, 220]
+    shapeName: donut
+    adjustments: [34000]
+    fill:
+      type: gradient
+      gradientType: linear
+      angle: 45
+      stops:
+        - {position: 0, color: "$marca"}
+        - {position: 1, color: "$violeta"}
+  # Núcleo luminoso (deslocado para 2 horas)
+  - elementId: simbolo-nucleo
+    elementType: shape
+    bounds: [644, 193, 53, 53]
+    shapeName: ellipse
+    fill:
+      type: gradient
+      gradientType: radial
+      stops:
+        - {position: 0, color: "#FF9E70"}
+        - {position: 1, color: "$marca"}
+
+  # Wordmark
+  - elementId: wordmark
+    elementType: text
+    bounds: [340, 396, 600, 116]
+    content:
+      fontFamily: Liter
+      fontSize: 92
+      bold: true
+      color: "$texto"
+      letterSpacing: 2
+      align: [center, middle]
+      wrap: false
+      text: resolux
+
+  # Tagline
+  - elementId: tagline
+    elementType: text
+    bounds: [340, 524, 600, 32]
+    content:
+      fontFamily: Liter
+      fontSize: 20
+      color: "$texto2"
+      letterSpacing: 1
+      align: [center, middle]
+      wrap: false
+      text: Assistente local para o Resolume Arena
+
+  # Rótulos
+  - elementId: rotulo-topo
+    elementType: text
+    bounds: [48, 40, 320, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      letterSpacing: 4
+      align: [left, middle]
+      wrap: false
+      text: RESOLUX · IDENTIDADE
+  - elementId: rotulo-base
+    elementType: text
+    bounds: [48, 664, 480, 20]
+    content:
+      fontFamily: Liter
+      fontSize: 13
+      color: "$texto3"
+      align: [left, middle]
+      wrap: false
+      text: 01 — Marca principal · fundo escuro

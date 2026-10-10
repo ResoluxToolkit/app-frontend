@@ -5,8 +5,14 @@
 // MCP/Ollama/REST do Arena diretamente.
 // ------------------------------------------------------------
 
-const BASE_PADRAO = 'http://127.0.0.1:1980';
-const WS_PADRAO = 'ws://127.0.0.1:1980/api/v1/ws';
+// Em produção o bundle estático é servido pelo próprio daemon; em dev,
+// o Vite proxy /api/v1 para o daemon. Abrir direto de arquivo volta ao
+// endereço local documentado.
+const BASE_PADRAO =
+  typeof window !== 'undefined' && window.location.protocol.startsWith('http')
+    ? ''
+    : 'http://127.0.0.1:1980';
+const WS_PADRAO = `${BASE_PADRAO}/api/v1/ws`.replace(/^http/, 'ws');
 
 // Turnos locais levam minutos (medido no engine: 34 s a 3 min+).
 const TIMEOUT_SONDA_MS = 2000;
