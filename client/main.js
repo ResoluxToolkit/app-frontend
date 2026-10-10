@@ -140,8 +140,35 @@ function htmlMensagem(mensagem) {
 }
 
 function renderMensagens() {
-  el('lista-mensagens').innerHTML = mensagens.get().map(htmlMensagem).join('');
+  const lista = mensagens.get();
+  const container = el('lista-mensagens');
+  const ultima = lista.at(-1);
+  if (container.childElementCount === lista.length && lista.length > 0 && ultima.papel === 'agente') {
+    atualizarUltimoCartao(container.lastElementChild, ultima);
+    rolarThread();
+    return;
+  }
+  container.innerHTML = lista.map(htmlMensagem).join('');
   rolarThread();
+}
+
+function atualizarUltimoCartao(cartao, msg) {
+  const estadoOrb = msg.estadoOrb || 'breathing';
+  const canvas = cartao.querySelector('.orb-canvas');
+  if (canvas && canvas.dataset.orb !== estadoOrb) {
+    // Estado do orb mudou: recria o cartão inteiro — o OrbManager
+    // reescaneia o DOM pelo MutationObserver.
+    const modelo = document.createElement('template');
+    modelo.innerHTML = htmlMensagem(msg);
+    cartao.replaceWith(modelo.content.firstElementChild);
+    return;
+  }
+  const corpo = cartao.querySelector('.corpo');
+  if (corpo) corpo.innerHTML = escaparHtml(msg.texto).replace(/\n/g, '<br>');
+  const meta = cartao.querySelector('.meta');
+  if (meta) meta.textContent = `${msg.hora} · ${msg.tokens ?? 0} tokens`;
+  const copiar = cartao.querySelector('.copiar');
+  if (copiar) copiar.dataset.texto = msg.texto;
 }
 
 function atualizarTrabalho() {
@@ -192,6 +219,21 @@ function rolarThread() {
 }
 
 let turnoAtual = null;
+let msgIdTurno = null;
+
+function garantirMensagemTurno() {
+  if (msgIdTurno != null) return msgIdTurno;
+  adicionarMensagem({
+    papel: 'agente',
+    texto: '',
+    hora: horaAgora(),
+    tokens: 0,
+    estadoOrb: 'breathing',
+    streaming: true,
+  });
+  msgIdTurno = mensagens.get().at(-1).id;
+  return msgIdTurno;
+}
 
 function enviar(texto) {
   if (processando.get()) return;
@@ -207,25 +249,13 @@ function enviar(texto) {
   rotuloProcessando.set('Processando sua solicitação…');
   rolarThread();
 
-  let msgId = null;
-  const garantirMensagem = () => {
-    if (msgId != null) return msgId;
-    adicionarMensagem({
-      papel: 'agente',
-      texto: '',
-      hora: horaAgora(),
-      tokens: 0,
-      estadoOrb: 'breathing',
-      streaming: true,
-    });
-    msgId = mensagens.get().at(-1).id;
-    return msgId;
-  };
+  msgIdTurno = null;
 
   const encerrar = () => {
     processando.set(false);
     estadoAgente.set('breathing');
     turnoAtual = null;
+    msgIdTurno = null;
     subirContexto(4);
     rolarThread();
   };
@@ -244,12 +274,12 @@ function enviar(texto) {
       rotuloTrabalho.set('Escrevendo a resposta…');
     },
     onChunk(parcial, tokens) {
-      const id = garantirMensagem();
+      const id = garantirMensagemTurno();
       estadoAgente.set('composing');
       atualizarMensagem(id, { texto: parcial, tokens });
     },
     onFinal(texto) {
-      const id = garantirMensagem();
+      const id = garantirMensagemTurno();
       atualizarMensagem(id, {
         texto,
         tokens: Math.max(1, Math.round(texto.length / 4)),
@@ -258,7 +288,7 @@ function enviar(texto) {
       encerrar();
     },
     onError(codigo, mensagem) {
-      const id = garantirMensagem();
+      const id = garantirMensagemTurno();
       atualizarMensagem(id, {
         texto: `Erro do motor (${codigo}): ${mensagem}`,
         streaming: false,
@@ -269,17 +299,19 @@ function enviar(texto) {
 }
 
 function parar() {
+  const emTurno = Boolean(turnoAtual) || processando.get();
   if (turnoAtual) {
     turnoAtual.cancelar();
     turnoAtual = null;
   }
-  const ultima = mensagens.get().at(-1);
-  if (ultima && ultima.streaming) {
-    atualizarMensagem(ultima.id, {
-      streaming: false,
-      texto: ultima.texto ? `${ultima.texto} …(interrompido)` : '(resposta interrompida)',
-    });
-  }
+  if (!emTurno) return;
+  const id = garantirMensagemTurno();
+  const msg = mensagens.get().find((m) => m.id === id);
+  atualizarMensagem(id, {
+    streaming: false,
+    texto: msg && msg.texto ? `${msg.texto} …(interrompido)` : '(resposta interrompida)',
+  });
+  msgIdTurno = null;
   processando.set(false);
   estadoAgente.set('breathing');
 }
@@ -362,16 +394,23 @@ function renderMonitor() {
           <span class="pill-status">${totalClips} clips</span>
         </div>
       </div>
-      ${linhas}
-      <div class="grade-rodape">Lupa: segure e arraste na grade — pra direita amplia, pra esquerda reduz. Duplo clique volta ao 100%.</div>
+  ${linhas}
+  <div class="grade-rodape">Lupa: segure e arraste na grade — pra direita amplia, pra esquerda reduz. Duplo clique volta ao 100%.</div>
     </section>
   `;
+  if (arrastandoZoom) {
+    const cartao = document.querySelector('.grade-card');
+    if (cartao) cartao.classList.add('arrastando');
+  }
   iniciarOrbs();
 }
+
+let arrastandoZoom = false;
 
 function aoSoltarZoom() {
   window.removeEventListener('mousemove', aoMoverZoom);
   window.removeEventListener('mouseup', aoSoltarZoom);
+  arrastandoZoom = false;
   const cartao = document.querySelector('.grade-card');
   if (cartao) cartao.classList.remove('arrastando');
 }
@@ -482,6 +521,7 @@ function registrarEventos() {
     const cartao = evento.target.closest('.grade-card');
     if (!cartao || evento.button !== 0) return;
     evento.preventDefault();
+    arrastandoZoom = true;
     cartao.classList.add('arrastando');
     window.addEventListener('mousemove', aoMoverZoom);
     window.addEventListener('mouseup', aoSoltarZoom);
@@ -490,7 +530,7 @@ function registrarEventos() {
     if (evento.target.closest('.grade-card')) resetarZoom();
   });
 
-  el('view-ajustes').addEventListener('change', (evento) => {
+  el('view-ajustes').addEventListener('change', async (evento) => {
     if (evento.target.id === 'campo-modelo') {
       const model = evento.target.value.trim();
       if (model) atualizarSessao({ model });
@@ -498,19 +538,16 @@ function registrarEventos() {
     }
     if (evento.target.id === 'chk-todas') {
       if (evento.target.checked) {
-        allowlistVisao.set(null);
-        atualizarSessao({ toolAllowlist: null });
+        if (await atualizarSessao({ toolAllowlist: null })) allowlistVisao.set(null);
       } else {
         const lista = ferramentasMotor.get().map((ferramenta) => ferramenta.name);
-        allowlistVisao.set(lista);
-        atualizarSessao({ toolAllowlist: lista });
+        if (await atualizarSessao({ toolAllowlist: lista })) allowlistVisao.set(lista);
       }
       return;
     }
     if (evento.target.classList.contains('chk-ferramenta')) {
       const marcadas = [...document.querySelectorAll('.chk-ferramenta:checked')].map((campo) => campo.value);
-      allowlistVisao.set(marcadas);
-      atualizarSessao({ toolAllowlist: marcadas });
+      if (await atualizarSessao({ toolAllowlist: marcadas })) allowlistVisao.set(marcadas);
     }
   });
 }
