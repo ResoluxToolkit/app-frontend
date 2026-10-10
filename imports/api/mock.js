@@ -88,6 +88,7 @@ function slotVazio(id) {
 function composicaoExemplo() {
   return {
     layers: NOMES_POR_CAMADA.map((nomes, camada) => ({
+      name: { value: 'Layer #' },
       active_clip: null,
       clips: Array.from({ length: 9 }, (_, coluna) => {
         const id = camada * 100 + coluna + 1;

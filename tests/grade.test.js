@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { montarGrade } from '../imports/ui/grade.js';
+import { montarGrade, rotuloCamada } from '../imports/ui/grade.js';
 import { MockDaemon } from '../imports/api/mock.js';
 
 const composicao = {
   layers: [
     {
+      name: { value: 'Layer #' },
       active_clip: { id: 11 },
       clips: [
         {
@@ -32,41 +33,53 @@ const composicao = {
         },
       ],
     },
-    { clips: [] },
+    { name: { value: 'TimeGrid' }, clips: [] },
   ],
 };
 
 describe('grade de clips', () => {
-  it('monta endereços camada.coluna na ordem do Arena', () => {
+  it('monta endereços crescentes e exibe camadas na ordem visual do Arena', () => {
     const grade = montarGrade(composicao);
     assert.equal(grade.camadas.length, 2);
+    assert.deepEqual(grade.camadas.map((camada) => camada.numero), [2, 1]);
     assert.deepEqual(
-      grade.camadas[0].celulas.map((celula) => celula.id),
+      grade.camadas[1].celulas.map((celula) => celula.id),
       ['1.1', '1.2', '1.3', '1.4', '1.5'],
     );
-    assert.equal(grade.camadas[1].celulas.length, 0);
+    assert.equal(grade.camadas[0].celulas.length, 0);
   });
 
   it('classifica preenchido, vazio e generator como a engine', () => {
-    const celulas = montarGrade(composicao).camadas[0].celulas;
+    const camadaUm = montarGrade(composicao).camadas.find((camada) => camada.numero === 1);
+    const celulas = camadaUm.celulas;
     assert.equal(celulas[0].preenchido, true);
     assert.equal(celulas[1].preenchido, false);
     assert.equal(celulas[2].preenchido, true);
   });
 
   it('marca só o clip do active_clip como tocando', () => {
-    const celulas = montarGrade(composicao).camadas[0].celulas;
+    const camadaUm = montarGrade(composicao).camadas.find((camada) => camada.numero === 1);
+    const celulas = camadaUm.celulas;
     assert.equal(celulas[0].ativo, true);
     assert.ok(celulas.slice(1).every((celula) => !celula.ativo));
     assert.deepEqual(montarGrade(composicao).ativo, { nome: 'Spike', endereco: '1.1' });
   });
 
   it('só aceita thumbnail com id e last_update válidos', () => {
-    const celulas = montarGrade(composicao).camadas[0].celulas;
+    const camadaUm = montarGrade(composicao).camadas.find((camada) => camada.numero === 1);
+    const celulas = camadaUm.celulas;
     assert.deepEqual(celulas[0].thumb, { id: 5, stamp: '1696000000' });
     assert.equal(celulas[2].thumb, null);
     assert.equal(celulas[3].thumb, null);
     assert.equal(celulas[4].thumb, null);
+  });
+
+  it('rotula camadas pelo nome do Arena, preenchendo o # com o número', () => {
+    const grade = montarGrade(composicao);
+    assert.deepEqual(grade.camadas.map((camada) => camada.rotulo), ['TimeGrid', 'Layer 1']);
+    assert.equal(rotuloCamada({ value: 'Camada especial' }, 2), 'Camada especial');
+    assert.equal(rotuloCamada({ value: 'Layer #' }, 3), 'Layer 3');
+    assert.equal(rotuloCamada(null, 4), 'Camada 4');
   });
 });
 
@@ -79,6 +92,8 @@ describe('MockDaemon', () => {
     });
     const grade = montarGrade(composicaoMock);
     assert.equal(grade.camadas.length, 3);
+    assert.deepEqual(grade.camadas.map((camada) => camada.numero), [3, 2, 1]);
+    assert.deepEqual(grade.camadas.map((camada) => camada.rotulo), ['Layer 3', 'Layer 2', 'Layer 1']);
     assert.ok(grade.camadas.every((camada) => camada.celulas.length === 9));
     assert.equal(backend.urlThumbnail(1, 'x'), null);
   });

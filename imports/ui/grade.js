@@ -64,6 +64,16 @@ export function fonteThumb(clip) {
   return { id, stamp };
 }
 
+// O Arena guarda nomes com `#` e exibe o `#` como número da camada
+// (comportamento medido: "Layer #" vira "Layer 3"). Nome renomeado
+// pelo usuário já vem pronto no mesmo campo; slot sem nome cai no
+// rótulo interno.
+export function rotuloCamada(nome, numero) {
+  const texto = textoDe(nome).trim();
+  if (!texto) return `Camada ${numero}`;
+  return texto.replace(/#/g, String(numero));
+}
+
 // Converte o corpo de GET /composition em camadas de células.
 // `ativo` é o primeiro clip reproduzindo (active_clip da camada,
 // igual ao REST — pausado não existe na API dele, não inventamos).
@@ -90,7 +100,10 @@ export function montarGrade(composicao) {
         thumb: fonteThumb(clip),
       };
     });
-    return { numero, celulas };
+    return { numero, rotulo: rotuloCamada(layer.name, numero), celulas };
   });
+  // A UI do Arena lista a última camada no topo; endereços continuam
+  // sendo o índice crescente do REST (`camada.coluna` 1-based).
+  camadas.reverse();
   return { camadas, ativo };
 }

@@ -376,7 +376,7 @@ function renderMonitor() {
         : '<span class="clip-vazio" aria-hidden="true">—</span>';
       return `<div class="${classes.join(' ')}" title="${escaparHtml(titulo)}">${conteudo}${nome}</div>`;
     }).join('');
-    return `<div class="camada"><div class="camada-rotulo">camada ${camada.numero}</div><div class="camada-linha" style="--zoom: ${zoomGrade.get()}">${celulas}</div></div>`;
+    return `<div class="camada"><div class="camada-rotulo">${escaparHtml(camada.rotulo)}</div><div class="camada-linha" style="--zoom: ${zoomGrade.get()}">${celulas}</div></div>`;
   }).join('');
 
   el('monitor-conteudo').innerHTML = `
