@@ -285,6 +285,8 @@ function enviar(texto) {
         tokens: Math.max(1, Math.round(texto.length / 4)),
         streaming: false,
       });
+      el('composer-input').value = '';
+      rascunho.set('');
       encerrar();
     },
     onError(codigo, mensagem) {
