@@ -561,7 +561,10 @@ function registrarAssinaturas() {
   });
   backendAtivo.assinar(atualizarTopbar);
   mensagens.assinar(renderMensagens);
-  processando.assinar(atualizarTrabalho);
+  processando.assinar(() => {
+    atualizarTrabalho();
+    atualizarComposer();
+  });
   ouvindo.assinar(() => {
     atualizarTrabalho();
     atualizarComposer();
