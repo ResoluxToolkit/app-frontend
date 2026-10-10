@@ -5,6 +5,7 @@
   "scripts": {
     "start": "vite --port 3003",
     "dev": "vite --port 3003",
+    "dev:host": "vite --port 3003 --host",
     "build": "vite build",
     "preview": "vite preview --port 3003",
     "test": "node --test tests/*.test.js"

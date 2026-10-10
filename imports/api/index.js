@@ -8,7 +8,7 @@ import { Sinal } from '../ui/signal.js';
 
 import { ResoluxDaemon } from './client.js';
 import { MockDaemon } from './mock.js';
-import { montarGrade, mesmaGrade } from '../ui/grade.js';
+import { montarGrade, mesmaGrade, progressosTimeGrid } from '../ui/grade.js';
 
 const daemon = new ResoluxDaemon();
 const mock = new MockDaemon();
@@ -87,6 +87,10 @@ export const estadoMonitor = new Sinal('parado');
 export const gradeMonitor = new Sinal(null);
 export const ultimoPollMonitor = new Sinal(null);
 export const erroMonitor = new Sinal(null);
+// Barras de progresso da TimeGrid: [{ endereco, progresso }] — fora do
+// modelo da grade de propósito: position muda a cada tick e não pode
+// forçar re-render (as thumbnails seriam recriadas).
+export const progressoGrade = new Sinal([]);
 
 // Retorna { cancelar() }. Quem abre a tela assina; quem fecha cancela.
 export function assinarMonitorGrade() {
@@ -107,6 +111,9 @@ export function assinarMonitorGrade() {
               : null;
         }
       }
+      // Barra antes da grade: se o clip ativo mudou, o render nasce já
+      // com o progresso novo; ticks seguintes só movem o preenchimento.
+      progressoGrade.set(progressosTimeGrid(composicao));
       // O daemon compara o JSON bruto do Arena, que muda por causa do
       // transporte/parâmetros. Aqui só atualizamos o que a grade exibe;
       // sem isso, <img> é recriado a cada tick e a thumb pisca.

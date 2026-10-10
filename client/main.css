@@ -122,8 +122,9 @@ button {
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-rows: var(--topbar-h) 1fr;
+  grid-template-rows: calc(var(--topbar-h) + env(safe-area-inset-top)) 1fr;
   height: 100vh;
+  height: 100dvh;
 }
 
 .app-body {
@@ -151,6 +152,7 @@ button {
   align-items: center;
   gap: 24px;
   padding: 0 20px;
+  padding-top: env(safe-area-inset-top);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -302,6 +304,47 @@ button {
   background: rgba(255, 255, 255, 0.07);
   margin: 12px 4px 0;
 }
+
+.remote-bloco {
+  display: grid;
+  gap: 8px;
+  margin: 8px 4px 0;
+  padding: 12px;
+  border-radius: var(--raio-chip);
+  background: var(--vidro);
+  border: 1px solid var(--borda-vidro);
+}
+.remote-estado {
+  font-size: 12px;
+  color: var(--texto-2);
+}
+.qr-canvas {
+  width: 160px;
+  height: 160px;
+  justify-self: center;
+  border-radius: 10px;
+  background: #fff;
+}
+.remote-url {
+  font-size: 12px;
+  color: var(--texto-3);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.remote-url:hover { color: var(--texto-2); }
+.remote-btn {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--vidro-forte);
+  border: 1px solid var(--borda-vidro);
+  color: var(--texto-2);
+  font-size: 13px;
+  transition: color var(--duracao-rapida) var(--ease-out),
+    border-color var(--duracao-rapida) var(--ease-out);
+}
+.remote-btn:hover { color: var(--texto); border-color: rgba(255, 255, 255, 0.22); }
 
 .chips-cap {
   display: flex;
@@ -546,7 +589,12 @@ button {
    Composer (cápsula 56pt) + border-beam
    ------------------------------------------------------------ */
 .composer-zona {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   padding: 8px 24px 20px;
+  padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, var(--fundo) 58%, transparent);
   width: 100%;
   max-width: calc(var(--thread-max) + 48px);
   margin: 0 auto;
@@ -1162,6 +1210,47 @@ button {
   gap: calc(10px * var(--zoom, 1));
 }
 
+.camada-linha.time-grid {
+  display: flex;
+  gap: calc(10px * var(--zoom, 1));
+}
+
+.camada-linha.time-grid .clip-celula {
+  aspect-ratio: auto;
+  height: calc(78px * var(--zoom, 1));
+  min-width: 0;
+  flex: 0 0 auto;
+  flex-grow: var(--largura, 1);
+  flex-basis: 0;
+}
+
+.camada-linha.time-grid .clip-celula.sem-tempo {
+  flex-grow: 0;
+  flex-basis: 12px;
+}
+
+.camada-linha.time-grid.tudo-sem-tempo .clip-celula {
+  flex-grow: var(--largura, 1);
+  flex-basis: 0;
+}
+
+/* Progresso da TimeGrid: preenche o bloco de baixo pra cima conforme o
+   transporte do clip ativo avança, com gradiente de opacidade (base
+   mais forte, topo quase transparente) e uma linha nítida marcando a
+   frente. Vive sob o nome e sob o beam. */
+.clip-progresso {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  height: calc(var(--progresso, 0) * 100%);
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.04));
+  border-top: 1px solid rgba(255, 255, 255, 0.45);
+  transition: height 0.95s linear;
+}
+
 .clip-celula {
   position: relative;
   aspect-ratio: 4 / 3;
@@ -1175,10 +1264,64 @@ button {
 }
 
 .clip-celula.ativo {
-  border-color: rgba(48, 209, 88, 0.60);
-  box-shadow:
-    0 0 0 1px rgba(48, 209, 88, 0.35),
-    0 0 16px rgba(48, 209, 88, 0.20);
+  border-color: transparent;
+  overflow: visible;
+  box-shadow: 0 0 14px rgba(255, 90, 120, 0.08);
+}
+
+.clip-celula.ativo .clip-thumb {
+  clip-path: inset(0 round 11px);
+}
+
+/* Border beam no clip ativo — reutiliza os knobs do beam do composer */
+.clip-celula.ativo::before,
+.clip-celula.ativo::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 12px;
+  padding: 1.5px;
+  pointer-events: none;
+  opacity: 0.26;
+  background: conic-gradient(from var(--beam-angulo, 0deg),
+    rgba(255,255,255,0.9) 0deg, #ff3264 60deg, #288cff 100deg,
+    #32c850 140deg, #1eb9aa 180deg, #6446ff 220deg,
+    #ff7828 260deg, #f032b4 300deg, #b428f0 340deg,
+    rgba(255,255,255,0.9) 360deg);
+  filter: hue-rotate(var(--beam-hue, 0deg));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: beam-gira 1.96s linear infinite, beam-hue-shift 12s linear infinite;
+}
+
+.clip-celula.ativo::before {
+  opacity: 0.14;
+  background: conic-gradient(from var(--beam-angulo, 0deg),
+    #ff3264 0deg, #288cff 60deg, #32c850 100deg, #1eb9aa 140deg,
+    #6446ff 180deg, #ff7828 220deg, #f032b4 260deg, #b428f0 300deg,
+    #ff3264 360deg);
+  filter: brightness(1.3) saturate(1.2) hue-rotate(var(--beam-hue, 0deg));
+  -webkit-mask:
+    conic-gradient(from var(--beam-angulo, 0deg),
+      rgba(255,255,255,0.9) 0deg, transparent 90deg, transparent 270deg,
+      rgba(255,255,255,0.7) 360deg),
+    linear-gradient(#fff, transparent 20px, transparent calc(100% - 20px), #fff),
+    linear-gradient(to right, #fff, transparent 20px, transparent calc(100% - 20px), #fff);
+  -webkit-mask-composite: source-in, source-over;
+  mask:
+    conic-gradient(from var(--beam-angulo, 0deg),
+      rgba(255,255,255,0.9) 0deg, transparent 90deg, transparent 270deg,
+      rgba(255,255,255,0.7) 360deg),
+    linear-gradient(#fff, transparent 20px, transparent calc(100% - 20px), #fff),
+    linear-gradient(to right, #fff, transparent 20px, transparent calc(100% - 20px), #fff);
+  mask-composite: intersect, add;
+}
+
+.clip-celula.ativo::after {
+  opacity: 0.4;
+  z-index: 2;
 }
 
 .clip-celula.vazio { background: rgba(0, 0, 0, 0.18); }
@@ -1222,6 +1365,21 @@ button {
 
 .clip-vazio { color: var(--texto-3); font-size: 16px; }
 
+.clip-tempo {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  z-index: 1;
+  padding: 2px 6px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--texto);
+  background: rgba(10, 10, 13, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
 .grade-rodape {
   margin-top: 16px;
   padding-top: 10px;
@@ -1256,14 +1414,57 @@ button {
 }
 
 /* ------------------------------------------------------------
+   Instalação PWA — instrução de "Adicionar à Tela de Início"
+   ------------------------------------------------------------ */
+.pwa-instalar {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 50;
+  display: grid;
+  place-items: end center;
+  padding: 16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+.pwa-cartao {
+  width: min(420px, 100%);
+  padding: 20px;
+  display: grid;
+  gap: 12px;
+  background: var(--vidro);
+  border: 1px solid var(--borda-vidro);
+  border-radius: var(--raio-card);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  animation: pwa-subir var(--duracao-media) var(--ease-out);
+}
+.pwa-titulo { font-size: 17px; font-weight: 600; }
+.pwa-texto { margin: 0; font-size: 14px; color: var(--texto-2); }
+.pwa-texto strong { color: var(--texto); font-weight: 600; }
+.pwa-fechar {
+  justify-self: end;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: var(--marca-soft);
+  border: 1px solid var(--marca-border);
+  color: var(--marca);
+  font-weight: 600;
+}
+@keyframes pwa-subir {
+  from { transform: translateY(24px); opacity: 0; }
+}
+
+/* ------------------------------------------------------------
    Movimento reduzido: pausa beam, orbs (via JS) e voz
    ------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
   .beam-wrap::before,
   .beam-wrap::after,
-  .beam-bloom { animation: none !important; }
+  .beam-bloom,
+  .clip-celula.ativo::before,
+  .clip-celula.ativo::after { animation: none !important; }
+  .clip-progresso { transition: none !important; }
   .btn-mic.ouvindo::before { animation: none !important; opacity: 0.6; }
   .msg-usuario, .msg-agente, .status-trabalho, .msg-agente .corpo .palavra {
     animation: none !important;
   }
+  .pwa-cartao { animation: none !important; }
 }

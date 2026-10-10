@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { montarGrade, rotuloCamada, mesmaGrade } from '../imports/ui/grade.js';
+import { formatarTempo, montarGrade, rotuloCamada, mesmaGrade, progressosTimeGrid } from '../imports/ui/grade.js';
 import { MockDaemon } from '../imports/api/mock.js';
 
 const composicao = {
@@ -97,6 +97,108 @@ describe('grade de clips', () => {
   });
 });
 
+describe('TimeGrid', () => {
+  const composicaoTimeGrid = {
+    layers: [
+      {
+        name: { value: 'timegrid' },
+        clips: [
+          { id: 21, name: { value: '4m' }, transport: { controls: { duration: { value: 240 }, speed: { value: 1 } } } },
+          { id: 22, name: { value: '3m' }, transport: { controls: { duration: { value: 180 }, speed: { value: 1 } } } },
+          { id: 23, name: { value: '2m' }, transport: { controls: { duration: { value: 120 }, speed: { value: 1 } } } },
+          { id: 24, name: { value: '1m' }, transport: { controls: { duration: { value: 60 }, speed: { value: 1 } } } },
+          { id: 25, name: { value: 'sem tempo' }, video: { fileinfo: { path: { value: '/clips/imagem.png' } } } },
+        ],
+      },
+      { name: { value: 'Layer #' }, clips: [{ id: 31, name: { value: 'Normal' }, transport: { controls: { duration: { value: 90 } } } }] },
+    ],
+  };
+
+  it('distribui larguras só pela camada com nome TimeGrid', () => {
+    const grade = montarGrade(composicaoTimeGrid);
+    const especial = grade.camadas.find((camada) => camada.numero === 1);
+    assert.equal(especial.timeGrid, true);
+    assert.equal(especial.celulas[0].largura, 0.4);
+    assert.equal(especial.celulas[1].largura, 0.3);
+    assert.equal(especial.celulas[2].largura, 0.2);
+    assert.equal(especial.celulas[3].largura, 0.1);
+    assert.equal(especial.totalTempo, 600);
+    assert.equal(grade.camadas.find((camada) => camada.numero === 2).timeGrid, undefined);
+  });
+
+  it('usa Clip > Duration dividido por Clip > Speed', () => {
+    const composicaoAcelerada = structuredClone(composicaoTimeGrid);
+    composicaoAcelerada.layers[0].clips[3].transport.controls.speed = { value: 2 };
+    const especial = montarGrade(composicaoAcelerada).camadas.find((camada) => camada.numero === 1);
+    assert.deepEqual(especial.celulas.slice(0, 4).map((celula) => celula.tempo), [240, 180, 120, 30]);
+    assert.equal(especial.celulas[3].largura, 30 / 570);
+  });
+
+  it('mantém slot sem Clip Duration visível, mas fora da soma', () => {
+    const especial = montarGrade(composicaoTimeGrid).camadas.find((camada) => camada.numero === 1);
+    assert.equal(especial.celulas[4].tempo, null);
+    assert.equal(especial.celulas[4].largura, 0);
+  });
+
+  it('divide igual quando nenhum clip tem Clip Duration', () => {
+    const composicaoVazia = structuredClone(composicaoTimeGrid);
+    composicaoVazia.layers[0].clips = composicaoVazia.layers[0].clips.map((clip) => ({
+      ...clip,
+      transport: undefined,
+    }));
+    const especial = montarGrade(composicaoVazia).camadas.find((camada) => camada.numero === 1);
+    assert.equal(especial.totalTempo, null);
+    assert.equal(especial.timeGridSemTempo, true);
+    assert.ok(especial.celulas.every((celula) => celula.largura === 0.2));
+  });
+
+  it('formata tempos em minutos e segundos', () => {
+    assert.deepEqual([formatarTempo(30), formatarTempo(90), formatarTempo(240)], ['30s', '1m30s', '4m']);
+  });
+
+  it('lê o progresso do clip ativo do transporte do Arena', () => {
+    const composicao = structuredClone(composicaoTimeGrid);
+    composicao.layers[0].active_clip = { id: 22 };
+    composicao.layers[0].clips[1].transport.position = { value: 90000, in: 0, out: 180000 };
+    assert.deepEqual(progressosTimeGrid(composicao), [{ endereco: '1.2', progresso: 0.5 }]);
+  });
+
+  it('respeita o trim do transporte (in/out) no progresso', () => {
+    const composicao = structuredClone(composicaoTimeGrid);
+    composicao.layers[0].active_clip = { id: 23 };
+    composicao.layers[0].clips[2].transport.position = { value: 150000, in: 100000, out: 200000 };
+    assert.deepEqual(progressosTimeGrid(composicao), [{ endereco: '1.3', progresso: 0.5 }]);
+  });
+
+  it('limita o progresso entre 0 e 1', () => {
+    const composicao = structuredClone(composicaoTimeGrid);
+    composicao.layers[0].active_clip = { id: 21 };
+    composicao.layers[0].clips[0].transport.position = { value: 300000, in: 0, out: 240000 };
+    assert.equal(progressosTimeGrid(composicao)[0].progresso, 1);
+    composicao.layers[0].clips[0].transport.position = { value: -50, in: 0, out: 240000 };
+    assert.equal(progressosTimeGrid(composicao)[0].progresso, 0);
+  });
+
+  it('não inventa barra sem posição ou sem clip ativo', () => {
+    const semPosicao = structuredClone(composicaoTimeGrid);
+    semPosicao.layers[0].active_clip = { id: 21 };
+    assert.deepEqual(progressosTimeGrid(semPosicao), []);
+    const semAtivo = structuredClone(composicaoTimeGrid);
+    semAtivo.layers[0].active_clip = null;
+    semAtivo.layers[0].clips[0].transport.position = { value: 500, in: 0, out: 1000 };
+    assert.deepEqual(progressosTimeGrid(semAtivo), []);
+  });
+
+  it('mantém a grade estável quando só a posição do transporte muda', () => {
+    const antes = structuredClone(composicaoTimeGrid);
+    antes.layers[0].active_clip = { id: 21 };
+    antes.layers[0].clips[0].transport.position = { value: 60000, in: 0, out: 240000 };
+    const depois = structuredClone(antes);
+    depois.layers[0].clips[0].transport.position.value = 120000;
+    assert.equal(mesmaGrade(montarGrade(antes), montarGrade(depois)), true);
+  });
+});
+
 describe('MockDaemon', () => {
   it('empurra a composição de exemplo via assinatura', async () => {
     const backend = new MockDaemon();
@@ -105,10 +207,14 @@ describe('MockDaemon', () => {
       inscricao.cancelar();
     });
     const grade = montarGrade(composicaoMock);
-    assert.equal(grade.camadas.length, 3);
-    assert.deepEqual(grade.camadas.map((camada) => camada.numero), [3, 2, 1]);
-    assert.deepEqual(grade.camadas.map((camada) => camada.rotulo), ['Layer 3', 'Layer 2', 'Layer 1']);
-    assert.ok(grade.camadas.every((camada) => camada.celulas.length === 9));
+    assert.equal(grade.camadas.length, 4);
+    assert.deepEqual(grade.camadas.map((camada) => camada.numero), [4, 3, 2, 1]);
+    assert.deepEqual(grade.camadas.map((camada) => camada.rotulo), ['TimeGrid', 'Layer 3', 'Layer 2', 'Layer 1']);
+    assert.equal(grade.camadas[0].timeGrid, true);
+    assert.ok(grade.camadas.slice(1).every((camada) => camada.celulas.length === 9));
+    assert.equal(grade.camadas[0].celulas.length, 4);
+    assert.equal(grade.camadas[0].totalTempo, 600);
+    assert.equal(progressosTimeGrid(composicaoMock).length, 1);
     assert.equal(backend.urlThumbnail(1, 'x'), null);
   });
 

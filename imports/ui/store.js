@@ -1,4 +1,10 @@
 import { Sinal } from './signal.js';
+import {
+  carregarConversa,
+  carregarContexto,
+  salvarConversa,
+  salvarContexto,
+} from './persistencia.js';
 
 // ------------------------------------------------------------
 // Navegação: seção ativa da topbar
@@ -10,34 +16,39 @@ export const secaoAtiva = new Sinal('assistente');
 // Estado global da tela Assistente (mock interativo)
 // ------------------------------------------------------------
 
-let proximoId = 3;
+// Conversa padrão (Hello World) — também é o estado de "Nova conversa".
+function conversaPadrao() {
+  return [
+    { id: 1, papel: 'usuario', texto: 'Hello World!', hora: '03:29' },
+    {
+      id: 2,
+      papel: 'agente',
+      texto:
+        'Olá, Luizinho! Hello World de volta. Estou pronto quando você estiver: ' +
+        'posso verificar a câmera, acompanhar o monitor do Arena ou preparar o Quick Play.\n\n' +
+        'Por onde começamos?',
+      hora: '03:29',
+      tokens: 54,
+      estadoOrb: 'breathing',
+      streaming: false,
+    },
+  ];
+}
 
-export const mensagens = new Sinal([
-  {
-    id: 1,
-    papel: 'usuario',
-    texto: 'Hello World!',
-    hora: '03:29',
-  },
-  {
-    id: 2,
-    papel: 'agente',
-    texto:
-      'Olá, Luizinho! Hello World de volta. Estou pronto quando você estiver: ' +
-      'posso verificar a câmera, acompanhar o monitor do Arena ou preparar o Quick Play.\n\n' +
-      'Por onde começamos?',
-    hora: '03:29',
-    tokens: 54,
-    estadoOrb: 'breathing',
-    streaming: false,
-  },
-]);
+// A conversa sobrevive ao refresh: carrega o que está no localStorage
+// (ou o padrão) e grava a cada mudança da thread.
+const baseConversa = carregarConversa() ?? conversaPadrao();
+let proximoId = baseConversa.reduce((maior, m) => Math.max(maior, m.id ?? 0), 0) + 1;
+
+export const mensagens = new Sinal(baseConversa);
+mensagens.assinar((valor) => salvarConversa(valor));
 
 export const processando = new Sinal(false);
 export const ouvindo = new Sinal(false);
 export const focado = new Sinal(false);
 export const rascunho = new Sinal('');
-export const contextoPct = new Sinal(9);
+export const contextoPct = new Sinal(carregarContexto(9));
+contextoPct.assinar((valor) => salvarContexto(valor));
 
 // Estado do agente: breathing | listening | searching | composing | working
 export const estadoAgente = new Sinal('breathing');
@@ -79,11 +90,111 @@ export function atualizarMensagem(id, patch) {
 
 export function resetarConversa() {
   proximoId = 3;
-  mensagens.set(mensagens.get().slice(0, 2));
+  mensagens.set(conversaPadrao());
   contextoPct.set(9);
   processando.set(false);
   ouvindo.set(false);
   estadoAgente.set('breathing');
+}
+
+// Turnos vindos do daemon (GET /api/v1/conversa): mapeia pro formato da
+// thread, renumera ids e ignora turnos fora do contrato. Lista vazia não
+// mexe na thread — o fallback local segue valendo.
+export function definirConversa(turnos) {
+  if (!Array.isArray(turnos)) return;
+  const mapeadas = turnos
+    .filter(
+      (turno) =>
+        ['usuario', 'agente'].includes(turno?.papel) &&
+        typeof turno?.texto === 'string' &&
+        turno.texto.trim(),
+    )
+    .map((turno) => ({
+      papel: turno.papel,
+      texto: turno.texto,
+      hora: typeof turno.hora === 'string' ? turno.hora : '',
+      turnoId: turno.id ?? null,
+      ...(turno.papel === 'agente'
+        ? {
+            tokens: Math.max(1, Math.round(turno.texto.length / 4)),
+            estadoOrb: 'breathing',
+            streaming: false,
+          }
+        : {}),
+    }));
+  if (mapeadas.length === 0) return;
+  let id = 1;
+  const numeradas = mapeadas.map((mensagem) => ({ id: id++, ...mensagem }));
+  proximoId = id;
+  mensagens.set(numeradas);
+}
+
+// Push do daemon (conversa.update): thread reativa entre os devices.
+// Regras: no meio de um turno local, a thread local manda — só vincula
+// cópias (mensagem enviada, streaming) ao id do disco; ociosa, thread sem
+// vínculo é substituída inteira (era o preenchimento padrão); com vínculo,
+// reconcilia em ordem e anexa só o que falta. Extras locais (erro,
+// interrompido) ficam — o daemon não os grava.
+export function incorporarTurnos(turnos) {
+  if (!Array.isArray(turnos)) return;
+  const emTurno = processando.get();
+  if (!emTurno && turnos.length === 0) {
+    resetarConversa();
+    return;
+  }
+  const lista = mensagens.get();
+  if (!emTurno && lista.every((mensagem) => mensagem.turnoId == null)) {
+    definirConversa(turnos);
+    return;
+  }
+
+  const presentes = new Set(lista.map((m) => m.turnoId).filter((v) => v != null));
+  let cursor = 0;
+  const proximoTurno = () => {
+    while (
+      cursor < turnos.length &&
+      (turnos[cursor]?.id == null || presentes.has(turnos[cursor].id))
+    ) {
+      cursor += 1;
+    }
+    return turnos[cursor];
+  };
+
+  for (const mensagem of lista) {
+    if (mensagem.turnoId != null) continue;
+    const turno = proximoTurno();
+    if (
+      turno &&
+      turno.papel === mensagem.papel &&
+      turno.texto === mensagem.texto
+    ) {
+      presentes.add(turno.id);
+      cursor += 1;
+      atualizarMensagem(mensagem.id, { turnoId: turno.id });
+    }
+  }
+  if (emTurno) return;
+
+  for (; cursor < turnos.length; cursor += 1) {
+    const turno = turnos[cursor];
+    if (turno?.id == null || presentes.has(turno.id)) continue;
+    if (!['usuario', 'agente'].includes(turno.papel)) continue;
+    if (typeof turno.texto !== 'string' || !turno.texto.trim()) continue;
+    presentes.add(turno.id);
+    adicionarMensagem({
+      papel: turno.papel,
+      texto: turno.texto,
+      hora: typeof turno.hora === 'string' ? turno.hora : '',
+      turnoId: turno.id,
+      ...(turno.papel === 'agente'
+        ? {
+            tokens: Math.max(1, Math.round(turno.texto.length / 4)),
+            estadoOrb: 'breathing',
+            streaming: false,
+          }
+        : {}),
+    });
+  }
 }
 
 export function subirContexto(delta) {

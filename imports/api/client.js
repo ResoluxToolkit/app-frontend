@@ -101,6 +101,72 @@ export class ResoluxDaemon {
     return res.json();
   }
 
+  // Conversa persistida pelo daemon em ~/.resolux — leitura e limpeza
+  // pela API v1; o front nunca toca no disco.
+  async obterConversa() {
+    const res = await fetch(`${this.base}/api/v1/conversa`);
+    if (!res.ok) throw await lerEnvelopeErro(res);
+    return res.json();
+  }
+
+  async apagarConversa() {
+    const res = await fetch(`${this.base}/api/v1/conversa`, {
+      method: 'DELETE',
+    });
+    if (!res.ok) throw await lerEnvelopeErro(res);
+    return res.json();
+  }
+
+  // Assinatura viva da conversa: WS persistente que nasce com um
+  // snapshot do disco e recebe conversa.update a cada turno novo ou
+  // limpeza — é o que torna a thread reativa entre desktop e celular.
+  assinarConversa(callbacks = {}) {
+    let cancelado = false;
+    let timer = null;
+    let tentativa = 0;
+    let socket = null;
+
+    const conectar = () => {
+      if (cancelado) return;
+      const id = `conv-${Date.now()}-${++tentativa}`;
+      socket = new WebSocket(this.wsUrl);
+      const ws = socket;
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'conversa.subscribe', id }));
+      };
+
+      ws.onmessage = (evento) => {
+        let mensagem;
+        try {
+          mensagem = JSON.parse(evento.data);
+        } catch (_) {
+          return;
+        }
+        if (mensagem.type === 'conversa.update') {
+          callbacks.onTurnos?.(mensagem.payload?.turnos || []);
+        }
+      };
+
+      ws.onclose = () => {
+        if (cancelado) return;
+        timer = setTimeout(conectar, 2000);
+      };
+    };
+
+    conectar();
+
+    return {
+      cancelar() {
+        cancelado = true;
+        clearTimeout(timer);
+        timer = null;
+        socket?.close();
+        socket = null;
+      },
+    };
+  }
+
   // Monitor do Arena — ASSINATURA via WS, não poll da UI. O daemon é quem
   // mantém o poll de 1 s no REST do Arena e empurra só quando muda. O canal
   // do contrato é monitor.subscribe/monitor.update/monitor.error. As thumbs

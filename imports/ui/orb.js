@@ -56,25 +56,30 @@ class OrbManager {
 
     canvases.forEach((canvas) => {
       vivos.add(canvas);
-      const estado = ESTADOS_VALIDOS.has(canvas.dataset.orb)
-        ? canvas.dataset.orb
-        : 'breathing';
-      const tamanho = parseInt(canvas.dataset.orbTamanho || '20', 10);
-      const atual = this.orbs.get(canvas);
+      try {
+        const estado = ESTADOS_VALIDOS.has(canvas.dataset.orb)
+          ? canvas.dataset.orb
+          : 'breathing';
+        const tamanho = parseInt(canvas.dataset.orbTamanho || '20', 10);
+        const atual = this.orbs.get(canvas);
 
-      if (atual && atual.estado === estado && atual.tamanho === tamanho) return;
+        if (atual && atual.estado === estado && atual.tamanho === tamanho) return;
 
-      const preset = resolvePreset(estado, tamanho);
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      canvas.width = tamanho * dpr;
-      canvas.height = tamanho * dpr;
-      canvas.style.width = `${tamanho}px`;
-      canvas.style.height = `${tamanho}px`;
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const preset = resolvePreset(estado, tamanho);
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = tamanho * dpr;
+        canvas.height = tamanho * dpr;
+        canvas.style.width = `${tamanho}px`;
+        canvas.style.height = `${tamanho}px`;
+        const ctx = canvas.getContext('2d');
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      this.orbs.set(canvas, { estado, tamanho, preset, ctx });
-      this.pintar(canvas, performance.now());
+        this.orbs.set(canvas, { estado, tamanho, preset, ctx });
+        this.pintar(canvas, performance.now());
+      } catch (erro) {
+        // Um canvas com tamanho sem preset não pode derrubar o boot.
+        console.warn('orb ignorado:', canvas.dataset.orb, erro?.message);
+      }
     });
 
     // Remover canvases que saíram do DOM

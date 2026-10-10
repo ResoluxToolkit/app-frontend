@@ -57,6 +57,11 @@ function rotuloPara(texto) {
   return { trabalho: 'Pensando na sua solicitação…', processo: 'Processando sua solicitação…' };
 }
 
+function horaAgora() {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 // ------------------------------------------------------------
 // Composição de exemplo (shape do GET /composition do Arena):
 // parâmetros embrulhados em {value: ...}, campos diretos crus.
@@ -69,6 +74,8 @@ const NOMES_POR_CAMADA = [
   ['Trinity', 'Enter5', 'Cyberspace', 'Ethnik2', 'Galactucity'],
   ['SpaceUniverse', 'Ethnik2', 'Tank', 'OrganicMotions', 'Metalive'],
 ];
+
+const TEMPOS_TIME_GRID = [240, 180, 120, 60];
 
 function slotPreenchido(id, nome) {
   return {
@@ -85,9 +92,29 @@ function slotVazio(id) {
   return { id, name: { value: '' } };
 }
 
-function composicaoExemplo() {
+function slotTimeGrid(id, segundos) {
   return {
-    layers: NOMES_POR_CAMADA.map((nomes, camada) => ({
+    id,
+    name: { value: `Bloco ${formatarTempoExemplo(segundos)}` },
+    video: {
+      fileinfo: { path: { value: `/clips/time-grid-${segundos}.mov` } },
+    },
+    transport: {
+      controls: {
+        duration: { value: segundos },
+        speed: { value: 1 },
+      },
+    },
+  };
+}
+
+function formatarTempoExemplo(segundos) {
+  const minutos = Math.floor(segundos / 60);
+  return minutos > 0 ? `${minutos}m` : `${Math.round(segundos)}s`;
+}
+
+function composicaoExemplo() {
+  const camadas = NOMES_POR_CAMADA.map((nomes, camada) => ({
       name: { value: 'Layer #' },
       active_clip: null,
       clips: Array.from({ length: 9 }, (_, coluna) => {
@@ -95,13 +122,51 @@ function composicaoExemplo() {
         const nome = nomes[coluna];
         return nome ? slotPreenchido(id, nome) : slotVazio(id);
       }),
-    })),
+    }));
+  camadas.push(camadaTimeGridExemplo());
+  const composicao = { layers: camadas };
+  // Demo acelerada: 30s de show por tick, pra transitar entre clipes
+  // e mostrar a barra movendo sem esperar minutos no mock.
+  relogioTimeGrid += 30;
+  return composicao;
+}
+
+// A TimeGrid do mock toca de verdade: um clipe ativo por vez, posição
+// avançando dentro do range do transporte (mesmo shape do Arena:
+// ParamRange com in/out em ms). O parser lê isso sem saber que é demo.
+let relogioTimeGrid = 0;
+
+function camadaTimeGridExemplo() {
+  const total = TEMPOS_TIME_GRID.reduce((soma, segundos) => soma + segundos, 0);
+  let restante = relogioTimeGrid % total;
+  let ativoCol = -1;
+  let decorrido = 0;
+  for (const [coluna, segundos] of TEMPOS_TIME_GRID.entries()) {
+    if (restante < segundos) {
+      ativoCol = coluna;
+      decorrido = restante;
+      break;
+    }
+    restante -= segundos;
+  }
+  return {
+    name: { value: 'TimeGrid' },
+    active_clip: ativoCol >= 0 ? { id: 4000 + ativoCol + 1 } : null,
+    clips: TEMPOS_TIME_GRID.map((segundos, coluna) => {
+      const clip = slotTimeGrid(4000 + coluna + 1, segundos);
+      if (coluna === ativoCol) {
+        clip.transport.position = { value: decorrido * 1000, in: 0, out: segundos * 1000 };
+      }
+      return clip;
+    }),
   };
 }
 
 export class MockDaemon {
   constructor() {
     this.nome = 'mock';
+    // Conversa do mock vive só em memória: recarregar a aba zera.
+    this.conversa = [];
     // Sessão vive só em memória: recarregar a aba zera os ajustes.
     this.sessao = {
       protocol: 'resolux-api/1',
@@ -126,6 +191,23 @@ export class MockDaemon {
   async getTools() {
     // O mock não tem ferramentas do Arena: lista vazia, sem fingir.
     return { tools: [] };
+  }
+
+  // Mesma interface do daemon real: envelope {"turnos":[...]}, com
+  // turnos {papel, texto, hora}. Memória só — o mock não tem disco.
+  async obterConversa() {
+    return { turnos: [...this.conversa] };
+  }
+
+  async apagarConversa() {
+    this.conversa = [];
+    return { turnos: [] };
+  }
+
+  // Mesma interface do daemon: sem WS de conversa no mock — o mock é
+  // local, não há outro device para espelhar. Thread segue no localStorage.
+  assinarConversa(callbacks = {}) {
+    return { cancelar() {} };
   }
 
   // Mesma interface do daemon real: a UI assina o monitor e recebe os
@@ -176,6 +258,12 @@ export class MockDaemon {
 
     const rotulos = rotuloPara(texto);
     callbacks.onStarted?.(rotulos);
+    this.conversa.push({
+      id: this.conversa.length + 1,
+      papel: 'usuario',
+      texto,
+      hora: horaAgora(),
+    });
 
     // Fase 2: composing
     timers.push(
@@ -200,6 +288,12 @@ export class MockDaemon {
             clearInterval(streamingTimer);
             streamingTimer = null;
             callbacks.onFinal?.(resposta);
+            this.conversa.push({
+              id: this.conversa.length + 1,
+              papel: 'agente',
+              texto: resposta,
+              hora: horaAgora(),
+            });
           }
         }, 70);
       }, 3400),

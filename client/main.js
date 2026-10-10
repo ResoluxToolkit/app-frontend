@@ -15,6 +15,7 @@ import {
   adicionarMensagem,
   atualizarMensagem,
   resetarConversa,
+  incorporarTurnos,
   subirContexto,
   zoomGrade,
   ajustarZoom,
@@ -22,6 +23,11 @@ import {
 } from '../imports/ui/store';
 import { Sinal } from '../imports/ui/signal';
 import { iniciarOrbs } from '../imports/ui/orb';
+import { formatarTempo } from '../imports/ui/grade';
+import { desenharQr, gerarMatrizQr, urlRemota } from '../imports/ui/remoto';
+import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
+import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
+import { iniciarPreloader } from '../imports/ui/preloader';
 import {
   obterBackend,
   sondarBackend,
@@ -35,15 +41,15 @@ import {
   gradeMonitor,
   ultimoPollMonitor,
   erroMonitor,
+  progressoGrade,
   assinarMonitorGrade,
 } from '../imports/api';
 
 const ROTULOS_SECAO = {
   quickplay: 'Quick Play',
-  camera: 'Câmera',
-  monitor: 'Monitor',
+  monitor: 'Composição',
   assistente: 'Assistente',
-  starter: 'Starter',
+  status: 'Status',
   ajustes: 'Ajustes',
 };
 
@@ -92,7 +98,7 @@ function atualizarVisao() {
   el('view-assistente').hidden = secao !== 'assistente';
   el('view-monitor').hidden = secao !== 'monitor';
   el('view-ajustes').hidden = secao !== 'ajustes';
-  el('view-em-breve').hidden = !['quickplay', 'camera', 'starter'].includes(secao);
+  el('view-em-breve').hidden = !['quickplay', 'status'].includes(secao);
   if (!el('view-em-breve').hidden) {
     el('rotulo-em-breve').textContent = ROTULOS_SECAO[secao] || secao;
   }
@@ -100,6 +106,57 @@ function atualizarVisao() {
 
   if (secao === 'monitor') iniciarMonitor();
   if (secao === 'ajustes') renderAjustes();
+}
+
+// ------------------------------------------------------------
+// Remote: QR cosmético para pareamento do celular
+// ------------------------------------------------------------
+
+const CHAVE_REMOTO = 'resolux-remote-vinculado';
+
+function remotoVinculado() {
+  return localStorage.getItem(CHAVE_REMOTO) === '1';
+}
+
+function atualizarRemoto() {
+  const url = urlRemota();
+  const estado = el('remoto-estado');
+  const canvas = el('remoto-qr');
+  const link = el('remoto-url');
+  const botao = el('btn-remoto');
+  if (!estado || !canvas || !link || !botao) return;
+
+  if (!url) {
+    estado.textContent = 'Abra pelo endereço de rede para gerar o QR.';
+    canvas.hidden = true;
+    link.hidden = true;
+    botao.hidden = true;
+    return;
+  }
+
+  const vinculado = remotoVinculado();
+  estado.textContent = vinculado ? 'Painel pareado' : 'Leia para abrir no celular';
+  canvas.hidden = vinculado;
+  link.hidden = vinculado;
+  botao.hidden = false;
+  botao.textContent = vinculado ? 'Desvincular' : 'Autorizar pareamento';
+
+  if (!vinculado) {
+    link.href = url;
+    link.textContent = url;
+    desenharQr(canvas, gerarMatrizQr(url));
+  }
+}
+
+function aoClicarRemoto() {
+  if (remotoVinculado()) localStorage.removeItem(CHAVE_REMOTO);
+  else localStorage.setItem(CHAVE_REMOTO, '1');
+  atualizarRemoto();
+}
+
+function registrarRemoto() {
+  el('btn-remoto')?.addEventListener('click', aoClicarRemoto);
+  atualizarRemoto();
 }
 
 // ------------------------------------------------------------
@@ -346,6 +403,14 @@ function pararMonitor() {
   }
 }
 
+// A barra só existe no clip ativo da TimeGrid; o valor nasce do último
+// tick conhecido para o render não abrir desincronizado.
+function barraTimeGrid(camada, celula) {
+  if (!camada.timeGrid || !celula.ativo) return '';
+  const valor = progressoGrade.get().find((p) => p.endereco === celula.id)?.progresso ?? 0;
+  return `<div class="clip-progresso" data-endereco="${escaparHtml(celula.id)}" style="--progresso: ${valor}"></div>`;
+}
+
 function renderMonitor() {
   const grade = gradeMonitor.get();
   const erro = erroMonitor.get();
@@ -369,16 +434,29 @@ function renderMonitor() {
       if (celula.ativo) classes.push('ativo');
       if (!celula.preenchido) classes.push('vazio');
       if (celula.thumbUrl) classes.push('com-thumb');
-      const titulo = celula.preenchido ? `${celula.id} · ${celula.nome}` : `${celula.id} · slot vazio`;
+      if (camada.timeGrid) classes.push(celula.tempo == null ? 'sem-tempo' : 'com-tempo');
+      const rotuloTempo = camada.timeGrid && celula.tempo != null
+        ? ` · ${formatarTempo(celula.tempo)}`
+        : '';
+      const titulo = celula.preenchido
+        ? `${celula.id} · ${celula.nome}${rotuloTempo}`
+        : `${celula.id} · slot vazio`;
       const conteudo = celula.thumbUrl
         ? `<img class="clip-thumb" src="${escaparHtml(celula.thumbUrl)}" alt="" loading="lazy" draggable="false" onerror="this.classList.add('thumb-falha')">`
         : '';
       const nome = celula.preenchido
         ? `<span class="clip-nome">${escaparHtml(celula.nome)}</span>`
         : '<span class="clip-vazio" aria-hidden="true">—</span>';
-      return `<div class="${classes.join(' ')}" title="${escaparHtml(titulo)}">${conteudo}${nome}</div>`;
+      const estilo = camada.timeGrid ? ` style="--largura: ${celula.largura}"` : '';
+      const badge = camada.timeGrid && celula.tempo != null
+        ? `<span class="clip-tempo">${escaparHtml(formatarTempo(celula.tempo))}</span>`
+        : '';
+      return `<div class="${classes.join(' ')}"${estilo} title="${escaparHtml(titulo)}">${conteudo}${barraTimeGrid(camada, celula)}${nome}${badge}</div>`;
     }).join('');
-    return `<div class="camada"><div class="camada-rotulo">${escaparHtml(camada.rotulo)}</div><div class="camada-linha" style="--zoom: ${zoomGrade.get()}">${celulas}</div></div>`;
+    const linha = camada.timeGrid
+      ? `camada-linha time-grid${camada.timeGridSemTempo ? ' tudo-sem-tempo' : ''}`
+      : 'camada-linha';
+    return `<div class="camada"><div class="camada-rotulo">${escaparHtml(camada.rotulo)}</div><div class="${linha}" style="--zoom: ${zoomGrade.get()}">${celulas}</div></div>`;
   }).join('');
 
   el('monitor-conteudo').innerHTML = `
@@ -405,6 +483,18 @@ function renderMonitor() {
     if (cartao) cartao.classList.add('arrastando');
   }
   iniciarOrbs();
+}
+
+// A barra vive fora do re-render: position muda a cada tick e mexer no
+// modelo recriaria as thumbnails. Só movemos o preenchimento da barra
+// cujo endereço ainda é o clip ativo do render atual.
+function atualizarBarrasTimeGrid() {
+  const barras = document.querySelectorAll('.time-grid .clip-celula.ativo .clip-progresso');
+  const valores = new Map(progressoGrade.get().map((p) => [p.endereco, p.progresso]));
+  barras.forEach((barra) => {
+    const valor = valores.get(barra.dataset.endereco);
+    if (valor != null) barra.style.setProperty('--progresso', String(valor));
+  });
 }
 
 let arrastandoZoom = false;
@@ -487,11 +577,41 @@ function renderAjustes() {
 // Eventos e boot
 // ------------------------------------------------------------
 
+// Thread reativa: um WS por cliente (conversa.subscribe) — nasce com o
+// snapshot do disco e recebe conversa.update a cada turno/limpeza, em
+// qualquer device. No mock não há outro device: assinatura no-op.
+let inscricaoConversa = null;
+
+function sincronizarConversaRemota() {
+  if (backendAtivo.get() === 'daemon') {
+    inscricaoConversa ||= obterBackend().assinarConversa({
+      onTurnos: (turnos) => incorporarTurnos(turnos),
+    });
+  } else {
+    inscricaoConversa?.cancelar();
+    inscricaoConversa = null;
+  }
+}
+
+function configurarInstalacaoPwa() {
+  if (!precisaInstrucaoInstalacao() || instalacaoVista()) return;
+  const folha = el('pwa-instalar');
+  if (folha) folha.hidden = false;
+}
+
 function registrarEventos() {
   document.addEventListener('click', (evento) => {
     const nav = evento.target.closest('.nav-pill');
     if (nav?.dataset.secao) secaoAtiva.set(nav.dataset.secao);
-    if (evento.target.closest('#btn-nova')) resetarConversa();
+    if (evento.target.closest('#btn-nova')) {
+      resetarConversa();
+      obterBackend().apagarConversa().catch(() => {});
+    }
+
+    if (evento.target.closest('#btn-pwa-fechar')) {
+      el('pwa-instalar').hidden = true;
+      marcarInstalacaoVista();
+    }
 
     const acaoRapida = evento.target.closest('.acao-rapida');
     if (acaoRapida?.dataset.acao) enviar(acaoRapida.dataset.acao);
@@ -562,6 +682,7 @@ function registrarAssinaturas() {
     if (secaoAtiva.get() !== 'monitor') pararMonitor();
   });
   backendAtivo.assinar(atualizarTopbar);
+  backendAtivo.assinar(sincronizarConversaRemota);
   mensagens.assinar(renderMensagens);
   processando.assinar(() => {
     atualizarTrabalho();
@@ -580,6 +701,7 @@ function registrarAssinaturas() {
   estadoMonitor.assinar(renderMonitor);
   gradeMonitor.assinar(renderMonitor);
   erroMonitor.assinar(renderMonitor);
+  progressoGrade.assinar(atualizarBarrasTimeGrid);
   backendAtivo.assinar(renderMonitor);
   zoomGrade.assinar((valor) => {
     document.querySelectorAll('.camada-linha').forEach((linha) => linha.style.setProperty('--zoom', String(valor)));
@@ -597,6 +719,7 @@ function registrarAssinaturas() {
 
 registrarEventos();
 registrarAssinaturas();
+registrarRemoto();
 atualizarTopbar();
 atualizarVisao();
 renderMensagens();
@@ -604,4 +727,6 @@ atualizarTrabalho();
 atualizarComposer();
 atualizarContexto();
 iniciarOrbs();
+configurarInstalacaoPwa();
 sondarBackend();
+iniciarPreloader();
