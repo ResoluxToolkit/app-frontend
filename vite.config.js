@@ -11,6 +11,9 @@ export default defineConfig({
         target: 'http://127.0.0.1:1980',
         ws: true,
       },
+      '/monitor': {
+        target: 'http://127.0.0.1:8091',
+      },
     },
   },
   build: {

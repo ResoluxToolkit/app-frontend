@@ -43,6 +43,13 @@ import {
   erroMonitor,
   progressoGrade,
   assinarMonitorGrade,
+  estadoSistema,
+  contratoSistema,
+  erroSistema,
+  assinarSistema,
+  formatarBytes,
+  formatarTaxa,
+  formatarPct,
 } from '../imports/api';
 
 const ROTULOS_SECAO = {
@@ -98,13 +105,15 @@ function atualizarVisao() {
   el('view-assistente').hidden = secao !== 'assistente';
   el('view-monitor').hidden = secao !== 'monitor';
   el('view-ajustes').hidden = secao !== 'ajustes';
-  el('view-em-breve').hidden = !['quickplay', 'status'].includes(secao);
+  el('view-status').hidden = secao !== 'status';
+  el('view-em-breve').hidden = secao !== 'quickplay';
   if (!el('view-em-breve').hidden) {
     el('rotulo-em-breve').textContent = ROTULOS_SECAO[secao] || secao;
   }
   el('app-body').classList.toggle('app-body-simples', secao !== 'assistente');
 
   if (secao === 'monitor') iniciarMonitor();
+  if (secao === 'status') iniciarStatus();
   if (secao === 'ajustes') renderAjustes();
 }
 
@@ -466,7 +475,7 @@ function renderMonitor() {
     </div>
     ${backend === 'mock' ? '<p class="nota-mock">Mock local: grade de exemplo, sem Arena de verdade — por isso não há thumbnails. Com o daemon de pé, a grade e as thumbs vêm do proxy read-only <code>/api/v1/arena/**</code>.</p>' : ''}
     ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Monitor falhou:</strong> ${escaparHtml(erro)}</div>` : ''}
-    <section class="grade-card vidro">
+    <section class="grade-card vidro${status === 'pollando' ? ' border-beam' : ''}">
       <div class="card-titulo-linha">
         <h2>Grade de clips</h2>
         <div class="grade-pills">
@@ -509,6 +518,152 @@ function aoSoltarZoom() {
 
 function aoMoverZoom(evento) {
   ajustarZoom(zoomGrade.get() * (1 + evento.movementX * FATOR_ZOOM_POR_PX));
+}
+
+// ------------------------------------------------------------
+// Status — monitor do sistema via SSE do motor (`/monitor`, leitura pura)
+// ------------------------------------------------------------
+
+let inscricaoSistema = null;
+
+function iniciarStatus() {
+  if (!inscricaoSistema) inscricaoSistema = assinarSistema();
+  renderStatus();
+}
+
+function pararStatus() {
+  if (inscricaoSistema) {
+    inscricaoSistema.cancelar();
+    inscricaoSistema = null;
+  }
+}
+
+function linhaStatus(rotulo, valorHtml) {
+  return `<div class="status-linha"><span class="status-rotulo">${escaparHtml(rotulo)}</span><span class="status-valor">${valorHtml}</span></div>`;
+}
+
+function cardStatus(titulo, corpo, classeExtra = '') {
+  return `<section class="status-card vidro${classeExtra ? ` ${classeExtra}` : ''}"><div class="status-card-titulo">${escaparHtml(titulo)}</div>${corpo}</section>`;
+}
+
+function horaIso(iso) {
+  if (!iso) return '—';
+  const data = new Date(iso);
+  return Number.isNaN(data.getTime()) ? '—' : horaFormatada(data);
+}
+
+function renderStatus() {
+  const estado = estadoSistema.get();
+  const contrato = contratoSistema.get();
+  const erro = erroSistema.get();
+  const pill = el('status-pill');
+  pill.textContent = estado === 'ok' ? 'conectado' : estado === 'conectando' ? 'conectando…' : estado === 'offline' ? 'offline' : 'parado';
+  pill.className = `pill-status ${estado === 'ok' ? 'pill-sucesso' : estado === 'offline' ? 'pill-alerta' : ''}`;
+
+  if (!contrato) {
+    el('status-conteudo').innerHTML = erro
+      ? `<div class="aviso-erro vidro" role="alert"><strong>Feed do motor:</strong> ${escaparHtml(erro)}</div>`
+      : '<div class="em-breve vidro"><div class="secao-titulo">Sondando o motor…</div><p>Primeiro sample ainda não voltou. O motor só coleta com alguém olhando.</p></div>';
+    return;
+  }
+
+  const cartoes = [];
+  const conectando = estado === 'conectando';
+  const hardware = contrato.hardware;
+  if (hardware) {
+    cartoes.push(cardStatus('CPU', [
+      linhaStatus('Processador', escaparHtml(hardware.cpuModel)),
+      linhaStatus('Núcleos', String(hardware.coreCount)),
+      contrato.cpu
+        ? linhaStatus('Uso', `<strong>${formatarPct(contrato.cpu.usagePercent)}</strong> · user ${formatarPct(contrato.cpu.userPercent)} · sys ${formatarPct(contrato.cpu.systemPercent)}`)
+        : '',
+    ].filter(Boolean).join('')));
+  }
+
+  const memoria = contrato.memory;
+  if (memoria && memoria.totalBytes > 0) {
+    const usoPct = (memoria.usedBytes / memoria.totalBytes) * 100;
+    cartoes.push(cardStatus('Memória', `
+      <div class="status-barra"><span style="--valor: ${Math.min(100, usoPct).toFixed(1)}%"></span></div>
+      ${linhaStatus('Uso', `${formatarBytes(memoria.usedBytes)} de ${formatarBytes(memoria.totalBytes)} (${formatarPct(usoPct)})`)}
+      ${linhaStatus('Active', formatarBytes(memoria.activeBytes))}
+      ${linhaStatus('Wired', formatarBytes(memoria.wiredBytes))}
+      ${linhaStatus('Compressor', formatarBytes(memoria.compressorBytes))}
+      ${linhaStatus('Livre', formatarBytes(memoria.freeBytes))}`));
+  }
+
+  const gpu = contrato.gpu;
+  if (gpu) {
+    cartoes.push(cardStatus('GPU', [
+      gpu.name ? linhaStatus('Dispositivo', escaparHtml(gpu.name)) : '',
+      linhaStatus('Device', formatarPct(gpu.devicePercent)),
+      linhaStatus('Renderer', formatarPct(gpu.rendererPercent)),
+      linhaStatus('Tiler', formatarPct(gpu.tilerPercent)),
+      gpu.usedBytes != null ? linhaStatus('Memória em uso', formatarBytes(gpu.usedBytes)) : '',
+    ].filter(Boolean).join('')));
+  }
+
+  const rede = contrato.networkTotals;
+  const interfaces = (contrato.throughputs || [])
+    .map((t) => ({ ...t, total: t.bytesInPerSecond + t.bytesOutPerSecond }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3);
+  if (rede || interfaces.length) {
+    cartoes.push(cardStatus('Rede', [
+      rede ? linhaStatus('Total', `↓ ${formatarTaxa(rede.bytesInPerSecond)} · ↑ ${formatarTaxa(rede.bytesOutPerSecond)}`) : '',
+      rede ? linhaStatus('Pacotes', `↓ ${rede.packetsInPerSecond.toFixed(0)}/s · ↑ ${rede.packetsOutPerSecond.toFixed(0)}/s`) : '',
+      interfaces.map((t) => linhaStatus(escaparHtml(t.name), `↓ ${formatarTaxa(t.bytesInPerSecond)} · ↑ ${formatarTaxa(t.bytesOutPerSecond)}`)).join(''),
+    ].filter(Boolean).join(''), conectando ? 'border-beam' : ''));
+  }
+
+  const portas = contrato.ports || [];
+  if (portas.length) {
+    cartoes.push(cardStatus(`Portas (${portas.length})`, `<div class="status-lista">${portas.slice(0, 12).map((p) => linhaStatus(`${escaparHtml(p.processName)}:${p.localPort}`, `${escaparHtml(p.transport)} · ${escaparHtml(p.service)}`)).join('')}</div>`, conectando ? 'border-beam' : ''));
+  }
+
+  const ndi = contrato.ndi;
+  if (ndi) {
+    cartoes.push(cardStatus('NDI', [
+      linhaStatus('Estado', ndi.isAvailable ? '<span class="status-badge sucesso">disponível</span>' : '<span class="status-badge alerta">indisponível</span>'),
+      ndi.version ? linhaStatus('Versão', escaparHtml(ndi.version)) : '',
+      `<div class="status-lista">${ndi.sources.map((s) => linhaStatus(escaparHtml(s.name), escaparHtml(s.address))).join('')}</div>`,
+    ].join(''), ndi.isAvailable ? (conectando ? 'border-beam' : '') : 'border-beam border-beam--alerta'));
+  }
+
+  const midi = contrato.midi;
+  if (midi) {
+    cartoes.push(cardStatus(`MIDI (${midi.sources.length})`, `<div class="status-lista">${midi.sources.map((s) => linhaStatus(escaparHtml(s.name), `${s.packetCount} pacotes · última ${horaIso(s.lastMessageAt)}`)).join('') || '<p class="status-vazio">nenhuma fonte conectada</p>'}</div>`, conectando ? 'border-beam' : ''));
+  }
+
+  const artNet = contrato.artNet;
+  if (artNet) {
+    cartoes.push(cardStatus(`Art-Net (${artNet.nodes.length})`, [
+      linhaStatus('Respostas ao ArtPoll', String(artNet.replyCount)),
+      artNet.error ? linhaStatus('Erro', escaparHtml(artNet.error)) : '',
+      `<div class="status-lista">${artNet.nodes.map((n) => linhaStatus(escaparHtml(n.shortName), escaparHtml(n.ipAddress))).join('')}</div>`,
+    ].filter(Boolean).join('')));
+  }
+
+  const captura = contrato.captureDevices || [];
+  if (captura.length) {
+    cartoes.push(cardStatus(`Captura (${captura.length})`, `<div class="status-lista">${captura.map((d) => linhaStatus(escaparHtml(d.name), `${escaparHtml(d.deviceType)} · ${d.isConnected ? 'conectado' : 'desconectado'}`)).join('')}</div>`));
+  }
+
+  const audio = contrato.audioDevices || [];
+  if (audio.length) {
+    cartoes.push(cardStatus(`Áudio (${audio.length})`, `<div class="status-lista">${audio.map((d) => linhaStatus(escaparHtml(d.name), [d.isDefaultInput ? 'entrada padrão' : '', d.isDefaultOutput ? 'saída padrão' : '', `canais ${d.inputStreams}↑/${d.outputStreams}↓`].filter(Boolean).join(' · '))).join('')}</div>`));
+  }
+
+  const displays = contrato.displays || [];
+  if (displays.length) {
+    cartoes.push(cardStatus(`Displays (${displays.length})`, `<div class="status-lista">${displays.map((d) => linhaStatus(d.isMain ? 'Principal' : `Display ${d.id}`, `${d.pixelWidth}×${d.pixelHeight} · ${d.refreshRate.toFixed(0)} Hz`)).join('')}</div>`));
+  }
+
+  el('status-conteudo').innerHTML = `
+    <p class="status-amostra">Amostra de ${horaIso(contrato.capturedAt)} · contrato v${contrato.contractVersion}${estado === 'offline' ? ' — feed offline, mostrando o último sample' : ''}</p>
+    ${cartoes.length ? `<div class="status-grid">${cartoes.join('')}</div>` : '<div class="em-breve vidro"><div class="secao-titulo">Sem cartões</div><p>O motor não enviou nenhum bloco neste sample.</p></div>'}
+    ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Último problema no feed:</strong> ${escaparHtml(erro)}</div>` : ''}
+  `;
 }
 
 // ------------------------------------------------------------
@@ -675,11 +830,20 @@ function registrarEventos() {
   });
 }
 
+// Deep link por hash (#status, #monitor, #ajustes) — útil pra abrir a aba
+// certa num link externo ou no QR do celular.
+const SECOES_VALIDAS = new Set(['monitor', 'assistente', 'status', 'ajustes']);
+function aplicarHashInicial() {
+  const hash = window.location.hash.replace('#', '');
+  if (SECOES_VALIDAS.has(hash)) secaoAtiva.set(hash);
+}
+
 function registrarAssinaturas() {
   secaoAtiva.assinar(() => {
     atualizarTopbar();
     atualizarVisao();
     if (secaoAtiva.get() !== 'monitor') pararMonitor();
+    if (secaoAtiva.get() !== 'status') pararStatus();
   });
   backendAtivo.assinar(atualizarTopbar);
   backendAtivo.assinar(sincronizarConversaRemota);
@@ -703,6 +867,10 @@ function registrarAssinaturas() {
   erroMonitor.assinar(renderMonitor);
   progressoGrade.assinar(atualizarBarrasTimeGrid);
   backendAtivo.assinar(renderMonitor);
+
+  estadoSistema.assinar(renderStatus);
+  contratoSistema.assinar(renderStatus);
+  erroSistema.assinar(renderStatus);
   zoomGrade.assinar((valor) => {
     document.querySelectorAll('.camada-linha').forEach((linha) => linha.style.setProperty('--zoom', String(valor)));
     const pill = el('zoom-pill');
@@ -718,6 +886,7 @@ function registrarAssinaturas() {
 }
 
 registrarEventos();
+aplicarHashInicial();
 registrarAssinaturas();
 registrarRemoto();
 atualizarTopbar();

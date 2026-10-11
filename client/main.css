@@ -596,8 +596,12 @@ button {
   padding-bottom: calc(20px + env(safe-area-inset-bottom));
   background: linear-gradient(to top, var(--fundo) 58%, transparent);
   width: 100%;
-  max-width: calc(var(--thread-max) + 48px);
-  margin: 0 auto;
+  /* Fundo full-bleed: o gradiente cobre a largura toda; o conteúdo
+     continua centrado em --thread-max. */
+  > .beam-wrap {
+    max-width: calc(var(--thread-max) + 48px);
+    margin: 0 auto;
+  }
 }
 
 .beam-wrap {
@@ -1453,6 +1457,95 @@ button {
 }
 
 /* ------------------------------------------------------------
+   Status — monitor do sistema (feed SSE do motor, leitura pura)
+   ------------------------------------------------------------ */
+.status-col {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.status-amostra {
+  margin: 0;
+  color: var(--texto-3);
+  font-size: 12px;
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.status-card { padding: 18px; }
+
+.status-card-titulo {
+  margin: 0 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: var(--texto-3);
+}
+
+.status-linha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  font-size: 13px;
+}
+
+.status-linha + .status-linha { border-top: 1px solid var(--borda-vidro); }
+
+.status-rotulo { color: var(--texto-3); flex-shrink: 0; }
+.status-valor { color: var(--texto); text-align: right; overflow-wrap: anywhere; }
+.status-valor strong { color: var(--marca); font-weight: 600; }
+
+.status-badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.status-badge.sucesso {
+  color: var(--sucesso);
+  background: var(--sucesso-soft);
+  border: 1px solid rgba(48, 209, 88, 0.35);
+}
+.status-badge.alerta {
+  color: var(--marca);
+  background: var(--marca-soft);
+  border: 1px solid var(--marca-border);
+}
+
+.status-barra {
+  height: 6px;
+  margin: 4px 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+.status-barra span {
+  display: block;
+  height: 100%;
+  width: var(--valor, 0%);
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(242, 107, 51, 0.7), rgba(191, 90, 242, 0.7));
+}
+
+.status-lista { max-height: 220px; overflow-y: auto; }
+.status-lista .status-linha:first-child { border-top: none; }
+.status-vazio {
+  margin: 6px 0;
+  color: var(--texto-3);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------
    Movimento reduzido: pausa beam, orbs (via JS) e voz
    ------------------------------------------------------------ */
 @media (prefers-reduced-motion: reduce) {
@@ -1467,4 +1560,59 @@ button {
     animation: none !important;
   }
   .pwa-cartao { animation: none !important; }
+}
+
+/* Border beam — luz que corre a borda do card (CSS puro, conic-gradient).
+   Aplicar em `.status-card` ou `.grade-card` quando o feed está conectando
+   ou um dispositivo está indisponível. Variantes: --alerta (amarelo),
+   default é a marca Resolux. */
+@keyframes beam-rotate {
+  to { --beam-angle: 360deg; }
+}
+
+@property --beam-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.border-beam {
+  position: relative;
+  border-radius: 16px;
+}
+
+.border-beam::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--beam-angle),
+    transparent 0deg,
+    transparent 300deg,
+    var(--beam-cor) 330deg,
+    var(--beam-cor) 360deg
+  );
+  mask: linear-gradient(#fff 0 0) content-box exclude, linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  padding: 1px;
+  animation: beam-rotate 3.5s linear infinite;
+  pointer-events: none;
+}
+
+.border-beam {
+  --beam-cor: var(--marca);
+}
+
+.border-beam--alerta {
+  --beam-cor: var(--alerta);
+  animation-duration: 2s;
+}
+
+.border-beam--alerta::before {
+  animation-duration: 2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .border-beam::before { animation: none; }
 }

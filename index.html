@@ -12,7 +12,7 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <link rel="icon" type="image/png" href="./icons/favicon-32.png" />
-    <title>Resolux — Assistente</title>
+    <title>Resolux — Seu Resolume. Mais atento.</title>
     <style id="css-preloader">
       /* Preloader de abertura — embutido para pintar no primeiro frame,
          antes do bundle (no dev o CSS do Vite só entra via JS). Os tokens
@@ -142,7 +142,7 @@
         </div>
         <div class="pre-marca">
           <strong class="pre-nome">Resolux</strong>
-          <span class="pre-frase">Assistente que opera o Resolume Arena</span>
+          <span class="pre-frase">Seu Resolume. Mais atento.</span>
         </div>
         <div class="pre-chips" aria-hidden="true">
           <span class="pre-chip" style="animation-delay: 1.6s">Composição</span>
@@ -284,6 +284,21 @@
           <div class="ajustes-col">
             <header class="ajustes-header"><h1>Ajustes</h1><p class="subtitulo">Sessão do motor — grava na hora, direto no daemon.</p></header>
             <div id="ajustes-conteudo"></div>
+          </div>
+        </section>
+
+        <section id="view-status" class="pagina-simples" hidden>
+          <div class="status-col">
+            <header class="monitor-header">
+              <div class="monitor-titulo-grupo">
+                <div>
+                  <h1>Status</h1>
+                  <p class="subtitulo">Motor, rede e dispositivos — feed SSE do motor, leitura pura.</p>
+                </div>
+              </div>
+              <span id="status-pill" class="pill-status">parado</span>
+            </header>
+            <div id="status-conteudo"></div>
           </div>
         </section>
 
