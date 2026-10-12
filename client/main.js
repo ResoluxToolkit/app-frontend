@@ -23,11 +23,14 @@ import {
 } from '../imports/ui/store';
 import { Sinal } from '../imports/ui/signal';
 import { iniciarOrbs } from '../imports/ui/orb';
+import { aplicarMetalNoTexto } from '../imports/ui/logoMetal';
+import { markdownParaHtml } from '../imports/ui/markdown';
 import { formatarTempo } from '../imports/ui/grade';
 import { desenharQr, gerarMatrizQr, urlRemota } from '../imports/ui/remoto';
 import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
 import { iniciarPreloader } from '../imports/ui/preloader';
+import { iniciarControlesJanela } from '../imports/ui/wco';
 import {
   obterBackend,
   sondarBackend,
@@ -46,11 +49,19 @@ import {
   estadoSistema,
   contratoSistema,
   erroSistema,
+  historicoCpu,
+  historicoMemoria,
+  historicoGpu,
   assinarSistema,
   formatarBytes,
   formatarTaxa,
-  formatarPct,
 } from '../imports/api';
+import {
+  graficoCpuHtml,
+  graficoMemoriaHtml,
+  graficoGpuHtml,
+  processosSistemaHtml,
+} from '../imports/ui/dashboard';
 
 const ROTULOS_SECAO = {
   quickplay: 'Quick Play',
@@ -84,17 +95,19 @@ function horaFormatada(data) {
 
 function atualizarTopbar() {
   const backend = backendAtivo.get();
-  const rotulo =
-    backend === 'daemon'
-      ? 'Motor Resolux'
-      : backend === 'mock'
-        ? 'Mock local'
-        : 'Sondando motor…';
+  const descricoes = {
+    daemon: 'Motor Resolux conectado',
+    mock: 'Mock local conectado',
+  };
   const classe =
-    backend === 'daemon' ? 'sucesso' : backend === 'mock' ? 'marca' : 'neutro';
-
-  el('motor-rotulo').textContent = rotulo;
-  el('motor-dot').className = `dot ${classe}`;
+    backend === 'daemon' ? 'sucesso' : backend === 'mock' ? 'marca' : 'perigo';
+  const indicador = el('motor-indicador');
+  indicador.className = `motor-indicador ${classe}`;
+  indicador.title = descricoes[backend] || 'Sondando motor…';
+  indicador.setAttribute(
+    'aria-label',
+    `Motor: ${descricoes[backend] ? descricoes[backend].toLowerCase() : 'sondando'}`
+  );
   document.querySelectorAll('.nav-pill').forEach((botao) => {
     botao.classList.toggle('ativa', botao.dataset.secao === secaoAtiva.get());
   });
@@ -172,6 +185,31 @@ function registrarRemoto() {
 // Assistente
 // ------------------------------------------------------------
 
+function metaConversa() {
+  const lista = mensagens.get();
+  const primeira = lista.find((mensagem) => mensagem.papel === 'usuario');
+  const ultima = lista.at(-1);
+  const motor = backendAtivo.get() === 'daemon' ? 'Motor Resolux' : 'Mock local';
+
+  return {
+    titulo: primeira?.texto.split('\n')[0].trim() || 'Nova conversa',
+    meta: ultima?.hora ? `${motor} · ${ultima.hora}` : motor,
+  };
+}
+
+function renderConversas() {
+  const container = el('lista-conversas');
+  if (!container) return;
+  const conversa = metaConversa();
+
+  container.innerHTML = `
+    <button class="sessao ativa" aria-current="true">
+      <div class="titulo">${escaparHtml(conversa.titulo)}</div>
+      <div class="meta">${escaparHtml(conversa.meta)}</div>
+    </button>
+  `;
+}
+
 function htmlMensagem(mensagem) {
   if (mensagem.papel === 'usuario') {
     return `
@@ -191,7 +229,7 @@ function htmlMensagem(mensagem) {
         <span class="nome">RESOLUX</span>
         <span class="badge-pro">Pro</span>
       </header>
-      <div class="corpo">${escaparHtml(mensagem.texto).replace(/\n/g, '<br>')}</div>
+      <div class="corpo markdown">${markdownParaHtml(mensagem.texto)}</div>
       <footer class="rodape">
         <span class="meta">${escaparHtml(mensagem.hora)} · ${mensagem.tokens ?? 0} tokens</span>
         <div class="acoes">
@@ -230,7 +268,7 @@ function atualizarUltimoCartao(cartao, msg) {
     return;
   }
   const corpo = cartao.querySelector('.corpo');
-  if (corpo) corpo.innerHTML = escaparHtml(msg.texto).replace(/\n/g, '<br>');
+  if (corpo) corpo.innerHTML = markdownParaHtml(msg.texto);
   const meta = cartao.querySelector('.meta');
   if (meta) meta.textContent = `${msg.hora} · ${msg.tokens ?? 0} tokens`;
   const copiar = cartao.querySelector('.copiar');
@@ -525,6 +563,26 @@ function aoMoverZoom(evento) {
 // ------------------------------------------------------------
 
 let inscricaoSistema = null;
+let processosEncerrados = new Set();
+let processosEncerrando = new Set();
+let erroProcessos = '';
+let statusRenderPendente = null;
+
+function agendarRenderStatus() {
+  if (statusRenderPendente != null) return;
+  statusRenderPendente = requestAnimationFrame(() => {
+    statusRenderPendente = null;
+    renderStatus();
+  });
+}
+
+function definirStatusConteudo(html) {
+  const tela = el('view-status');
+  const conteudo = el('status-conteudo');
+  const posicao = tela?.scrollTop ?? 0;
+  conteudo.innerHTML = html;
+  if (tela) tela.scrollTop = posicao;
+}
 
 function iniciarStatus() {
   if (!inscricaoSistema) inscricaoSistema = assinarSistema();
@@ -532,6 +590,10 @@ function iniciarStatus() {
 }
 
 function pararStatus() {
+  if (statusRenderPendente != null) {
+    cancelAnimationFrame(statusRenderPendente);
+    statusRenderPendente = null;
+  }
   if (inscricaoSistema) {
     inscricaoSistema.cancelar();
     inscricaoSistema = null;
@@ -561,47 +623,14 @@ function renderStatus() {
   pill.className = `pill-status ${estado === 'ok' ? 'pill-sucesso' : estado === 'offline' ? 'pill-alerta' : ''}`;
 
   if (!contrato) {
-    el('status-conteudo').innerHTML = erro
+    definirStatusConteudo(erro
       ? `<div class="aviso-erro vidro" role="alert"><strong>Feed do motor:</strong> ${escaparHtml(erro)}</div>`
-      : '<div class="em-breve vidro"><div class="secao-titulo">Sondando o motor…</div><p>Primeiro sample ainda não voltou. O motor só coleta com alguém olhando.</p></div>';
+      : '<div class="em-breve vidro"><div class="secao-titulo">Sondando o motor…</div><p>Primeiro sample ainda não voltou. O motor só coleta com alguém olhando.</p></div>');
     return;
   }
 
   const cartoes = [];
   const conectando = estado === 'conectando';
-  const hardware = contrato.hardware;
-  if (hardware) {
-    cartoes.push(cardStatus('CPU', [
-      linhaStatus('Processador', escaparHtml(hardware.cpuModel)),
-      linhaStatus('Núcleos', String(hardware.coreCount)),
-      contrato.cpu
-        ? linhaStatus('Uso', `<strong>${formatarPct(contrato.cpu.usagePercent)}</strong> · user ${formatarPct(contrato.cpu.userPercent)} · sys ${formatarPct(contrato.cpu.systemPercent)}`)
-        : '',
-    ].filter(Boolean).join('')));
-  }
-
-  const memoria = contrato.memory;
-  if (memoria && memoria.totalBytes > 0) {
-    const usoPct = (memoria.usedBytes / memoria.totalBytes) * 100;
-    cartoes.push(cardStatus('Memória', `
-      <div class="status-barra"><span style="--valor: ${Math.min(100, usoPct).toFixed(1)}%"></span></div>
-      ${linhaStatus('Uso', `${formatarBytes(memoria.usedBytes)} de ${formatarBytes(memoria.totalBytes)} (${formatarPct(usoPct)})`)}
-      ${linhaStatus('Active', formatarBytes(memoria.activeBytes))}
-      ${linhaStatus('Wired', formatarBytes(memoria.wiredBytes))}
-      ${linhaStatus('Compressor', formatarBytes(memoria.compressorBytes))}
-      ${linhaStatus('Livre', formatarBytes(memoria.freeBytes))}`));
-  }
-
-  const gpu = contrato.gpu;
-  if (gpu) {
-    cartoes.push(cardStatus('GPU', [
-      gpu.name ? linhaStatus('Dispositivo', escaparHtml(gpu.name)) : '',
-      linhaStatus('Device', formatarPct(gpu.devicePercent)),
-      linhaStatus('Renderer', formatarPct(gpu.rendererPercent)),
-      linhaStatus('Tiler', formatarPct(gpu.tilerPercent)),
-      gpu.usedBytes != null ? linhaStatus('Memória em uso', formatarBytes(gpu.usedBytes)) : '',
-    ].filter(Boolean).join('')));
-  }
 
   const rede = contrato.networkTotals;
   const interfaces = (contrato.throughputs || [])
@@ -659,11 +688,39 @@ function renderStatus() {
     cartoes.push(cardStatus(`Displays (${displays.length})`, `<div class="status-lista">${displays.map((d) => linhaStatus(d.isMain ? 'Principal' : `Display ${d.id}`, `${d.pixelWidth}×${d.pixelHeight} · ${d.refreshRate.toFixed(0)} Hz`)).join('')}</div>`));
   }
 
-  el('status-conteudo').innerHTML = `
+  definirStatusConteudo(`
     <p class="status-amostra">Amostra de ${horaIso(contrato.capturedAt)} · contrato v${contrato.contractVersion}${estado === 'offline' ? ' — feed offline, mostrando o último sample' : ''}</p>
+    ${processosSistemaHtml(contrato, {
+      encerrados: processosEncerrados,
+      encerrando: processosEncerrando,
+      erro: erroProcessos,
+    })}
+    <div class="status-graficos">
+      ${graficoCpuHtml(historicoCpu.get(), contrato)}
+      ${graficoMemoriaHtml(historicoMemoria.get(), contrato)}
+      ${graficoGpuHtml(historicoGpu.get(), contrato)}
+    </div>
     ${cartoes.length ? `<div class="status-grid">${cartoes.join('')}</div>` : '<div class="em-breve vidro"><div class="secao-titulo">Sem cartões</div><p>O motor não enviou nenhum bloco neste sample.</p></div>'}
     ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Último problema no feed:</strong> ${escaparHtml(erro)}</div>` : ''}
-  `;
+  `);
+}
+
+async function encerrarProcesso(pid) {
+  if (!Number.isInteger(pid) || processosEncerrando.has(pid)) return;
+  processosEncerrando.add(pid);
+  renderStatus();
+
+  try {
+    const resposta = await fetch(`/monitor/processes/${pid}/terminate`, { method: 'POST' });
+    if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+    processosEncerrados.add(pid);
+    erroProcessos = '';
+  } catch (e) {
+    erroProcessos = e.message || 'não foi possível encerrar';
+  } finally {
+    processosEncerrando.delete(pid);
+    renderStatus();
+  }
 }
 
 // ------------------------------------------------------------
@@ -737,11 +794,18 @@ function renderAjustes() {
 // qualquer device. No mock não há outro device: assinatura no-op.
 let inscricaoConversa = null;
 
-function sincronizarConversaRemota() {
+async function sincronizarConversaRemota() {
   if (backendAtivo.get() === 'daemon') {
     inscricaoConversa ||= obterBackend().assinarConversa({
       onTurnos: (turnos) => incorporarTurnos(turnos),
     });
+
+    try {
+      const { turnos } = await obterBackend().obterConversa();
+      if (!processando.get()) definirConversa(turnos);
+    } catch (_) {
+      // A assinatura WebSocket segue tentando mesmo sem leitura inicial.
+    }
   } else {
     inscricaoConversa?.cancelar();
     inscricaoConversa = null;
@@ -756,20 +820,25 @@ function configurarInstalacaoPwa() {
 
 function registrarEventos() {
   document.addEventListener('click', (evento) => {
-    const nav = evento.target.closest('.nav-pill');
-    if (nav?.dataset.secao) secaoAtiva.set(nav.dataset.secao);
+    const nav = evento.target.closest('[data-secao]');
+    if (nav?.dataset.secao) {
+      evento.preventDefault();
+      secaoAtiva.set(nav.dataset.secao);
+    }
     if (evento.target.closest('#btn-nova')) {
       resetarConversa();
-      obterBackend().apagarConversa().catch(() => {});
+      obterBackend()
+        .apagarConversa()
+        .then(({ turnos }) => {
+          if (!processando.get()) definirConversa(turnos);
+        })
+        .catch(() => {});
     }
 
     if (evento.target.closest('#btn-pwa-fechar')) {
       el('pwa-instalar').hidden = true;
       marcarInstalacaoVista();
     }
-
-    const acaoRapida = evento.target.closest('.acao-rapida');
-    if (acaoRapida?.dataset.acao) enviar(acaoRapida.dataset.acao);
 
     const copiar = evento.target.closest('.copiar');
     if (copiar?.dataset.texto && navigator.clipboard) navigator.clipboard.writeText(copiar.dataset.texto);
@@ -779,6 +848,9 @@ function registrarEventos() {
 
     const backend = evento.target.closest('.seg[data-backend]');
     if (backend) atualizarSessao({ backend: backend.dataset.backend });
+
+    const processo = evento.target.closest('.btn-processo[data-pid]');
+    if (processo) encerrarProcesso(Number(processo.dataset.pid));
   });
 
   el('composer-form').addEventListener('submit', (evento) => {
@@ -840,6 +912,10 @@ function aplicarHashInicial() {
 
 function registrarAssinaturas() {
   secaoAtiva.assinar(() => {
+    const secao = secaoAtiva.get();
+    if (SECOES_VALIDAS.has(secao)) {
+      history.replaceState(null, '', `#${secao}`);
+    }
     atualizarTopbar();
     atualizarVisao();
     if (secaoAtiva.get() !== 'monitor') pararMonitor();
@@ -848,6 +924,8 @@ function registrarAssinaturas() {
   backendAtivo.assinar(atualizarTopbar);
   backendAtivo.assinar(sincronizarConversaRemota);
   mensagens.assinar(renderMensagens);
+  mensagens.assinar(renderConversas);
+  backendAtivo.assinar(renderConversas);
   processando.assinar(() => {
     atualizarTrabalho();
     atualizarComposer();
@@ -868,9 +946,12 @@ function registrarAssinaturas() {
   progressoGrade.assinar(atualizarBarrasTimeGrid);
   backendAtivo.assinar(renderMonitor);
 
-  estadoSistema.assinar(renderStatus);
-  contratoSistema.assinar(renderStatus);
-  erroSistema.assinar(renderStatus);
+  estadoSistema.assinar(agendarRenderStatus);
+  contratoSistema.assinar(agendarRenderStatus);
+  historicoCpu.assinar(agendarRenderStatus);
+  historicoMemoria.assinar(agendarRenderStatus);
+  historicoGpu.assinar(agendarRenderStatus);
+  erroSistema.assinar(agendarRenderStatus);
   zoomGrade.assinar((valor) => {
     document.querySelectorAll('.camada-linha').forEach((linha) => linha.style.setProperty('--zoom', String(valor)));
     const pill = el('zoom-pill');
@@ -889,6 +970,7 @@ registrarEventos();
 aplicarHashInicial();
 registrarAssinaturas();
 registrarRemoto();
+iniciarControlesJanela();
 atualizarTopbar();
 atualizarVisao();
 renderMensagens();
@@ -896,6 +978,7 @@ atualizarTrabalho();
 atualizarComposer();
 atualizarContexto();
 iniciarOrbs();
+aplicarMetalNoTexto(el('logo-metal'));
 configurarInstalacaoPwa();
 sondarBackend();
 iniciarPreloader();

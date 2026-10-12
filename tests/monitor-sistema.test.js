@@ -5,11 +5,20 @@ import {
   estadoSistema,
   contratoSistema,
   erroSistema,
+  historicoCpu,
+  historicoMemoria,
+  historicoGpu,
   aplicarContratoSistema,
   assinarSistema,
   formatarBytes,
   formatarTaxa,
 } from '../imports/api/monitorSistema.js';
+import {
+  graficoCpuHtml,
+  graficoMemoriaHtml,
+  graficoGpuHtml,
+  processosSistemaHtml,
+} from '../imports/ui/dashboard.js';
 
 const contratoV1 = JSON.stringify({
   contractVersion: 1,
@@ -43,6 +52,95 @@ test('formatarBytes e formatarTaxa usam escala binária legível', () => {
   assert.equal(formatarBytes(17179869184), '16 GB');
   assert.equal(formatarTaxa(3 * 1024 * 1024), '3.0 MB/s');
   assert.equal(formatarBytes(Number.NaN), '—');
+});
+
+test('histórico de CPU alimenta o gráfico com amostras recentes', () => {
+  historicoCpu.set([]);
+
+  aplicarContratoSistema(JSON.stringify({
+    contractVersion: 1,
+    capturedAt: '2026-10-10T12:00:00Z',
+    cpu: { usagePercent: 12.4 },
+  }));
+  aplicarContratoSistema(JSON.stringify({
+    contractVersion: 1,
+    capturedAt: '2026-10-10T12:00:01Z',
+    cpu: { usagePercent: 88.6 },
+  }));
+  aplicarContratoSistema(JSON.stringify({
+    contractVersion: 1,
+    capturedAt: '2026-10-10T12:00:02Z',
+    cpu: { usagePercent: 88.6, userPercent: 70, systemPercent: 18 },
+  }));
+
+  const historico = historicoCpu.get();
+  assert.equal(historico.length, 3);
+  assert.deepEqual(historico.map((amostra) => amostra.valor), [12.4, 88.6, 88.6]);
+  assert.match(graficoCpuHtml(historico), /<polyline[^>]+points="[\d.,\s]+"/);
+  assert.match(graficoCpuHtml(historico), /88\.6%/);
+  assert.match(graficoCpuHtml(historico, contratoSistema.get()), /user 70% · sys 18%/);
+});
+
+test('histórico de RAM e GPU alimenta os gráficos', () => {
+  historicoMemoria.set([]);
+  historicoGpu.set([]);
+
+  aplicarContratoSistema(JSON.stringify({
+    contractVersion: 1,
+    capturedAt: '2026-10-10T12:00:00Z',
+    memory: { totalBytes: 1000, usedBytes: 250 },
+    gpu: { devicePercent: 10, rendererPercent: 4, tilerPercent: 3 },
+  }));
+  aplicarContratoSistema(JSON.stringify({
+    contractVersion: 1,
+    capturedAt: '2026-10-10T12:00:01Z',
+    memory: { totalBytes: 1000, usedBytes: 750 },
+    gpu: { devicePercent: 80, rendererPercent: 61, tilerPercent: 22 },
+  }));
+
+  const memoria = historicoMemoria.get();
+  const gpu = historicoGpu.get();
+  assert.deepEqual(memoria.map((amostra) => amostra.valor), [25, 75]);
+  assert.deepEqual(gpu.map((amostra) => amostra.valor), [10, 80]);
+
+  const contrato = contratoSistema.get();
+  assert.match(graficoMemoriaHtml(memoria, contrato), /Uso de RAM/);
+  assert.match(graficoMemoriaHtml(memoria, contrato), /75%/);
+  assert.match(graficoMemoriaHtml(memoria, contrato), /750 B de 1000 B/);
+  assert.match(graficoGpuHtml(gpu, contrato), /Uso de GPU/);
+  assert.match(graficoGpuHtml(gpu, contrato), /80%/);
+  assert.match(graficoGpuHtml(gpu, contrato), /renderer 61% · tiler 22%/);
+});
+
+test('monitor de processos mostra externos com botão de encerrar', () => {
+  const contrato = {
+    processes: [
+      {
+        pid: 100,
+        processName: '/Applications/Obsidian.app/Contents/MacOS/Obsidian',
+        cpuPercent: 3.2,
+        memoryBytes: 8388608,
+        isArena: false,
+      },
+      {
+        pid: 200,
+        processName: '/Applications/Resolume Arena/Arena.app/Contents/MacOS/Arena',
+        cpuPercent: 49.3,
+        memoryBytes: 87_672_832,
+        isArena: true,
+      },
+    ],
+  };
+
+  const html = processosSistemaHtml(contrato);
+  assert.match(html, /Processos fora do Arena/);
+  assert.match(html, /Obsidian/);
+  assert.match(html, /PID 100/);
+  assert.match(html, /CPU 3\.2%/);
+  assert.match(html, /RAM 8\.0 MB/);
+  assert.match(html, /data-pid="100"/);
+  assert.ok(!html.includes('PID 200'));
+  assert.match(processosSistemaHtml(contrato, { encerrando: new Set([100]) }), /Encerrando…/);
 });
 
 test('assinarSistema conecta, recebe contrato, marca offline e cancela', () => {
