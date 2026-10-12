@@ -1657,6 +1657,18 @@ button {
     margin-bottom: 8px;
 }
 
+/* Rótulo da camada TimeGrid: nome em laranja e o complemento em
+   cinza, na mesma cor dos demais rótulos do painel. */
+.camada:has(> .camada-linha.time-grid) > .camada-rotulo {
+    color: var(--marca);
+}
+
+.camada:has(> .camada-linha.time-grid) > .camada-rotulo::after {
+    content: ' camada em formato de timeline';
+    text-transform: none;
+    color: var(--texto-3);
+}
+
 .camada-linha {
     display: grid;
     grid-template-columns: repeat(
@@ -1668,7 +1680,7 @@ button {
 
 .camada-linha.time-grid {
     display: flex;
-    gap: calc(10px * var(--zoom, 1));
+    gap: 0;
 }
 
 .camada-linha.time-grid .clip-celula {
@@ -1688,6 +1700,39 @@ button {
 .camada-linha.time-grid.tudo-sem-tempo .clip-celula {
     flex-grow: var(--largura, 1);
     flex-basis: 0;
+}
+
+/* No modo TimeGrid a fileira é uma tira: sem raio entre os clips —
+   o raio fica só nas pontas (primeira à esquerda, última à direita). */
+.camada-linha.time-grid .clip-celula {
+    border-radius: 0;
+    border-width: 2px;
+}
+
+.camada-linha.time-grid .clip-celula:first-child {
+    border-top-left-radius: 12px;
+    border-bottom-left-radius: 12px;
+}
+
+.camada-linha.time-grid .clip-celula:last-child {
+    border-top-right-radius: 12px;
+    border-bottom-right-radius: 12px;
+}
+
+/* O clip ativo mantém a borda transparente para o beam assumir. */
+.camada-linha.time-grid .clip-celula.ativo {
+    border-color: transparent;
+}
+
+/* Ativo no TimeGrid: sem raio — o beam acompanha a tira retangular. */
+.camada-linha.time-grid .clip-celula.ativo .clip-thumb {
+    clip-path: inset(0);
+    border-radius: 0;
+}
+
+.camada-linha.time-grid .clip-celula.ativo::before,
+.camada-linha.time-grid .clip-celula.ativo::after {
+    border-radius: 0;
 }
 
 /* Progresso da TimeGrid: preenche o bloco de baixo pra cima conforme o
