@@ -64,7 +64,7 @@ describe('conversa do daemon', () => {
     assert.equal(mensagens.get().at(-1).id, 3);
 
     definirConversa([]);
-    assert.equal(mensagens.get().length, 3);
+    assert.equal(mensagens.get().length, 0);
   });
 });
 
@@ -115,7 +115,7 @@ describe('sincronização da conversa (push)', () => {
     definirConversa([{ id: 1, papel: 'usuario', texto: 'algo', hora: '10:06' }]);
     incorporarTurnos([]);
     const lista = mensagens.get();
-    assert.equal(lista.length, 2);
+    assert.equal(lista.length, 0);
     assert.ok(lista.every((m) => m.turnoId == null));
   });
 });

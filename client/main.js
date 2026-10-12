@@ -23,11 +23,14 @@ import {
 } from '../imports/ui/store';
 import { Sinal } from '../imports/ui/signal';
 import { iniciarOrbs } from '../imports/ui/orb';
+import { aplicarMetalNoTexto } from '../imports/ui/logoMetal';
+import { markdownParaHtml } from '../imports/ui/markdown';
 import { formatarTempo } from '../imports/ui/grade';
 import { desenharQr, gerarMatrizQr, urlRemota } from '../imports/ui/remoto';
 import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
 import { iniciarPreloader } from '../imports/ui/preloader';
+import { iniciarControlesJanela } from '../imports/ui/wco';
 import {
   obterBackend,
   sondarBackend,
@@ -43,7 +46,22 @@ import {
   erroMonitor,
   progressoGrade,
   assinarMonitorGrade,
+  estadoSistema,
+  contratoSistema,
+  erroSistema,
+  historicoCpu,
+  historicoMemoria,
+  historicoGpu,
+  assinarSistema,
+  formatarBytes,
+  formatarTaxa,
 } from '../imports/api';
+import {
+  graficoCpuHtml,
+  graficoMemoriaHtml,
+  graficoGpuHtml,
+  processosSistemaHtml,
+} from '../imports/ui/dashboard';
 
 const ROTULOS_SECAO = {
   quickplay: 'Quick Play',
@@ -77,17 +95,19 @@ function horaFormatada(data) {
 
 function atualizarTopbar() {
   const backend = backendAtivo.get();
-  const rotulo =
-    backend === 'daemon'
-      ? 'Motor Resolux'
-      : backend === 'mock'
-        ? 'Mock local'
-        : 'Sondando motor…';
+  const descricoes = {
+    daemon: 'Motor Resolux conectado',
+    mock: 'Mock local conectado',
+  };
   const classe =
-    backend === 'daemon' ? 'sucesso' : backend === 'mock' ? 'marca' : 'neutro';
-
-  el('motor-rotulo').textContent = rotulo;
-  el('motor-dot').className = `dot ${classe}`;
+    backend === 'daemon' ? 'sucesso' : backend === 'mock' ? 'marca' : 'perigo';
+  const indicador = el('motor-indicador');
+  indicador.className = `motor-indicador ${classe}`;
+  indicador.title = descricoes[backend] || 'Sondando motor…';
+  indicador.setAttribute(
+    'aria-label',
+    `Motor: ${descricoes[backend] ? descricoes[backend].toLowerCase() : 'sondando'}`
+  );
   document.querySelectorAll('.nav-pill').forEach((botao) => {
     botao.classList.toggle('ativa', botao.dataset.secao === secaoAtiva.get());
   });
@@ -98,13 +118,15 @@ function atualizarVisao() {
   el('view-assistente').hidden = secao !== 'assistente';
   el('view-monitor').hidden = secao !== 'monitor';
   el('view-ajustes').hidden = secao !== 'ajustes';
-  el('view-em-breve').hidden = !['quickplay', 'status'].includes(secao);
+  el('view-status').hidden = secao !== 'status';
+  el('view-em-breve').hidden = secao !== 'quickplay';
   if (!el('view-em-breve').hidden) {
     el('rotulo-em-breve').textContent = ROTULOS_SECAO[secao] || secao;
   }
   el('app-body').classList.toggle('app-body-simples', secao !== 'assistente');
 
   if (secao === 'monitor') iniciarMonitor();
+  if (secao === 'status') iniciarStatus();
   if (secao === 'ajustes') renderAjustes();
 }
 
@@ -163,6 +185,31 @@ function registrarRemoto() {
 // Assistente
 // ------------------------------------------------------------
 
+function metaConversa() {
+  const lista = mensagens.get();
+  const primeira = lista.find((mensagem) => mensagem.papel === 'usuario');
+  const ultima = lista.at(-1);
+  const motor = backendAtivo.get() === 'daemon' ? 'Motor Resolux' : 'Mock local';
+
+  return {
+    titulo: primeira?.texto.split('\n')[0].trim() || 'Nova conversa',
+    meta: ultima?.hora ? `${motor} · ${ultima.hora}` : motor,
+  };
+}
+
+function renderConversas() {
+  const container = el('lista-conversas');
+  if (!container) return;
+  const conversa = metaConversa();
+
+  container.innerHTML = `
+    <button class="sessao ativa" aria-current="true">
+      <div class="titulo">${escaparHtml(conversa.titulo)}</div>
+      <div class="meta">${escaparHtml(conversa.meta)}</div>
+    </button>
+  `;
+}
+
 function htmlMensagem(mensagem) {
   if (mensagem.papel === 'usuario') {
     return `
@@ -182,7 +229,7 @@ function htmlMensagem(mensagem) {
         <span class="nome">RESOLUX</span>
         <span class="badge-pro">Pro</span>
       </header>
-      <div class="corpo">${escaparHtml(mensagem.texto).replace(/\n/g, '<br>')}</div>
+      <div class="corpo markdown">${markdownParaHtml(mensagem.texto)}</div>
       <footer class="rodape">
         <span class="meta">${escaparHtml(mensagem.hora)} · ${mensagem.tokens ?? 0} tokens</span>
         <div class="acoes">
@@ -221,7 +268,7 @@ function atualizarUltimoCartao(cartao, msg) {
     return;
   }
   const corpo = cartao.querySelector('.corpo');
-  if (corpo) corpo.innerHTML = escaparHtml(msg.texto).replace(/\n/g, '<br>');
+  if (corpo) corpo.innerHTML = markdownParaHtml(msg.texto);
   const meta = cartao.querySelector('.meta');
   if (meta) meta.textContent = `${msg.hora} · ${msg.tokens ?? 0} tokens`;
   const copiar = cartao.querySelector('.copiar');
@@ -466,7 +513,7 @@ function renderMonitor() {
     </div>
     ${backend === 'mock' ? '<p class="nota-mock">Mock local: grade de exemplo, sem Arena de verdade — por isso não há thumbnails. Com o daemon de pé, a grade e as thumbs vêm do proxy read-only <code>/api/v1/arena/**</code>.</p>' : ''}
     ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Monitor falhou:</strong> ${escaparHtml(erro)}</div>` : ''}
-    <section class="grade-card vidro">
+    <section class="grade-card vidro${status === 'pollando' ? ' border-beam' : ''}">
       <div class="card-titulo-linha">
         <h2>Grade de clips</h2>
         <div class="grade-pills">
@@ -509,6 +556,171 @@ function aoSoltarZoom() {
 
 function aoMoverZoom(evento) {
   ajustarZoom(zoomGrade.get() * (1 + evento.movementX * FATOR_ZOOM_POR_PX));
+}
+
+// ------------------------------------------------------------
+// Status — monitor do sistema via SSE do motor (`/monitor`, leitura pura)
+// ------------------------------------------------------------
+
+let inscricaoSistema = null;
+let processosEncerrados = new Set();
+let processosEncerrando = new Set();
+let erroProcessos = '';
+let statusRenderPendente = null;
+
+function agendarRenderStatus() {
+  if (statusRenderPendente != null) return;
+  statusRenderPendente = requestAnimationFrame(() => {
+    statusRenderPendente = null;
+    renderStatus();
+  });
+}
+
+function definirStatusConteudo(html) {
+  const tela = el('view-status');
+  const conteudo = el('status-conteudo');
+  const posicao = tela?.scrollTop ?? 0;
+  conteudo.innerHTML = html;
+  if (tela) tela.scrollTop = posicao;
+}
+
+function iniciarStatus() {
+  if (!inscricaoSistema) inscricaoSistema = assinarSistema();
+  renderStatus();
+}
+
+function pararStatus() {
+  if (statusRenderPendente != null) {
+    cancelAnimationFrame(statusRenderPendente);
+    statusRenderPendente = null;
+  }
+  if (inscricaoSistema) {
+    inscricaoSistema.cancelar();
+    inscricaoSistema = null;
+  }
+}
+
+function linhaStatus(rotulo, valorHtml) {
+  return `<div class="status-linha"><span class="status-rotulo">${escaparHtml(rotulo)}</span><span class="status-valor">${valorHtml}</span></div>`;
+}
+
+function cardStatus(titulo, corpo, classeExtra = '') {
+  return `<section class="status-card vidro${classeExtra ? ` ${classeExtra}` : ''}"><div class="status-card-titulo">${escaparHtml(titulo)}</div>${corpo}</section>`;
+}
+
+function horaIso(iso) {
+  if (!iso) return '—';
+  const data = new Date(iso);
+  return Number.isNaN(data.getTime()) ? '—' : horaFormatada(data);
+}
+
+function renderStatus() {
+  const estado = estadoSistema.get();
+  const contrato = contratoSistema.get();
+  const erro = erroSistema.get();
+  const pill = el('status-pill');
+  pill.textContent = estado === 'ok' ? 'conectado' : estado === 'conectando' ? 'conectando…' : estado === 'offline' ? 'offline' : 'parado';
+  pill.className = `pill-status ${estado === 'ok' ? 'pill-sucesso' : estado === 'offline' ? 'pill-alerta' : ''}`;
+
+  if (!contrato) {
+    definirStatusConteudo(erro
+      ? `<div class="aviso-erro vidro" role="alert"><strong>Feed do motor:</strong> ${escaparHtml(erro)}</div>`
+      : '<div class="em-breve vidro"><div class="secao-titulo">Sondando o motor…</div><p>Primeiro sample ainda não voltou. O motor só coleta com alguém olhando.</p></div>');
+    return;
+  }
+
+  const cartoes = [];
+  const conectando = estado === 'conectando';
+
+  const rede = contrato.networkTotals;
+  const interfaces = (contrato.throughputs || [])
+    .map((t) => ({ ...t, total: t.bytesInPerSecond + t.bytesOutPerSecond }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 3);
+  if (rede || interfaces.length) {
+    cartoes.push(cardStatus('Rede', [
+      rede ? linhaStatus('Total', `↓ ${formatarTaxa(rede.bytesInPerSecond)} · ↑ ${formatarTaxa(rede.bytesOutPerSecond)}`) : '',
+      rede ? linhaStatus('Pacotes', `↓ ${rede.packetsInPerSecond.toFixed(0)}/s · ↑ ${rede.packetsOutPerSecond.toFixed(0)}/s`) : '',
+      interfaces.map((t) => linhaStatus(escaparHtml(t.name), `↓ ${formatarTaxa(t.bytesInPerSecond)} · ↑ ${formatarTaxa(t.bytesOutPerSecond)}`)).join(''),
+    ].filter(Boolean).join(''), conectando ? 'border-beam' : ''));
+  }
+
+  const portas = contrato.ports || [];
+  if (portas.length) {
+    cartoes.push(cardStatus(`Portas (${portas.length})`, `<div class="status-lista">${portas.slice(0, 12).map((p) => linhaStatus(`${escaparHtml(p.processName)}:${p.localPort}`, `${escaparHtml(p.transport)} · ${escaparHtml(p.service)}`)).join('')}</div>`, conectando ? 'border-beam' : ''));
+  }
+
+  const ndi = contrato.ndi;
+  if (ndi) {
+    cartoes.push(cardStatus('NDI', [
+      linhaStatus('Estado', ndi.isAvailable ? '<span class="status-badge sucesso">disponível</span>' : '<span class="status-badge alerta">indisponível</span>'),
+      ndi.version ? linhaStatus('Versão', escaparHtml(ndi.version)) : '',
+      `<div class="status-lista">${ndi.sources.map((s) => linhaStatus(escaparHtml(s.name), escaparHtml(s.address))).join('')}</div>`,
+    ].join(''), ndi.isAvailable ? (conectando ? 'border-beam' : '') : 'border-beam border-beam--alerta'));
+  }
+
+  const midi = contrato.midi;
+  if (midi) {
+    cartoes.push(cardStatus(`MIDI (${midi.sources.length})`, `<div class="status-lista">${midi.sources.map((s) => linhaStatus(escaparHtml(s.name), `${s.packetCount} pacotes · última ${horaIso(s.lastMessageAt)}`)).join('') || '<p class="status-vazio">nenhuma fonte conectada</p>'}</div>`, conectando ? 'border-beam' : ''));
+  }
+
+  const artNet = contrato.artNet;
+  if (artNet) {
+    cartoes.push(cardStatus(`Art-Net (${artNet.nodes.length})`, [
+      linhaStatus('Respostas ao ArtPoll', String(artNet.replyCount)),
+      artNet.error ? linhaStatus('Erro', escaparHtml(artNet.error)) : '',
+      `<div class="status-lista">${artNet.nodes.map((n) => linhaStatus(escaparHtml(n.shortName), escaparHtml(n.ipAddress))).join('')}</div>`,
+    ].filter(Boolean).join('')));
+  }
+
+  const captura = contrato.captureDevices || [];
+  if (captura.length) {
+    cartoes.push(cardStatus(`Captura (${captura.length})`, `<div class="status-lista">${captura.map((d) => linhaStatus(escaparHtml(d.name), `${escaparHtml(d.deviceType)} · ${d.isConnected ? 'conectado' : 'desconectado'}`)).join('')}</div>`));
+  }
+
+  const audio = contrato.audioDevices || [];
+  if (audio.length) {
+    cartoes.push(cardStatus(`Áudio (${audio.length})`, `<div class="status-lista">${audio.map((d) => linhaStatus(escaparHtml(d.name), [d.isDefaultInput ? 'entrada padrão' : '', d.isDefaultOutput ? 'saída padrão' : '', `canais ${d.inputStreams}↑/${d.outputStreams}↓`].filter(Boolean).join(' · '))).join('')}</div>`));
+  }
+
+  const displays = contrato.displays || [];
+  if (displays.length) {
+    cartoes.push(cardStatus(`Displays (${displays.length})`, `<div class="status-lista">${displays.map((d) => linhaStatus(d.isMain ? 'Principal' : `Display ${d.id}`, `${d.pixelWidth}×${d.pixelHeight} · ${d.refreshRate.toFixed(0)} Hz`)).join('')}</div>`));
+  }
+
+  definirStatusConteudo(`
+    <p class="status-amostra">Amostra de ${horaIso(contrato.capturedAt)} · contrato v${contrato.contractVersion}${estado === 'offline' ? ' — feed offline, mostrando o último sample' : ''}</p>
+    ${processosSistemaHtml(contrato, {
+      encerrados: processosEncerrados,
+      encerrando: processosEncerrando,
+      erro: erroProcessos,
+    })}
+    <div class="status-graficos">
+      ${graficoCpuHtml(historicoCpu.get(), contrato)}
+      ${graficoMemoriaHtml(historicoMemoria.get(), contrato)}
+      ${graficoGpuHtml(historicoGpu.get(), contrato)}
+    </div>
+    ${cartoes.length ? `<div class="status-grid">${cartoes.join('')}</div>` : '<div class="em-breve vidro"><div class="secao-titulo">Sem cartões</div><p>O motor não enviou nenhum bloco neste sample.</p></div>'}
+    ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Último problema no feed:</strong> ${escaparHtml(erro)}</div>` : ''}
+  `);
+}
+
+async function encerrarProcesso(pid) {
+  if (!Number.isInteger(pid) || processosEncerrando.has(pid)) return;
+  processosEncerrando.add(pid);
+  renderStatus();
+
+  try {
+    const resposta = await fetch(`/monitor/processes/${pid}/terminate`, { method: 'POST' });
+    if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
+    processosEncerrados.add(pid);
+    erroProcessos = '';
+  } catch (e) {
+    erroProcessos = e.message || 'não foi possível encerrar';
+  } finally {
+    processosEncerrando.delete(pid);
+    renderStatus();
+  }
 }
 
 // ------------------------------------------------------------
@@ -582,11 +794,18 @@ function renderAjustes() {
 // qualquer device. No mock não há outro device: assinatura no-op.
 let inscricaoConversa = null;
 
-function sincronizarConversaRemota() {
+async function sincronizarConversaRemota() {
   if (backendAtivo.get() === 'daemon') {
     inscricaoConversa ||= obterBackend().assinarConversa({
       onTurnos: (turnos) => incorporarTurnos(turnos),
     });
+
+    try {
+      const { turnos } = await obterBackend().obterConversa();
+      if (!processando.get()) definirConversa(turnos);
+    } catch (_) {
+      // A assinatura WebSocket segue tentando mesmo sem leitura inicial.
+    }
   } else {
     inscricaoConversa?.cancelar();
     inscricaoConversa = null;
@@ -601,20 +820,25 @@ function configurarInstalacaoPwa() {
 
 function registrarEventos() {
   document.addEventListener('click', (evento) => {
-    const nav = evento.target.closest('.nav-pill');
-    if (nav?.dataset.secao) secaoAtiva.set(nav.dataset.secao);
+    const nav = evento.target.closest('[data-secao]');
+    if (nav?.dataset.secao) {
+      evento.preventDefault();
+      secaoAtiva.set(nav.dataset.secao);
+    }
     if (evento.target.closest('#btn-nova')) {
       resetarConversa();
-      obterBackend().apagarConversa().catch(() => {});
+      obterBackend()
+        .apagarConversa()
+        .then(({ turnos }) => {
+          if (!processando.get()) definirConversa(turnos);
+        })
+        .catch(() => {});
     }
 
     if (evento.target.closest('#btn-pwa-fechar')) {
       el('pwa-instalar').hidden = true;
       marcarInstalacaoVista();
     }
-
-    const acaoRapida = evento.target.closest('.acao-rapida');
-    if (acaoRapida?.dataset.acao) enviar(acaoRapida.dataset.acao);
 
     const copiar = evento.target.closest('.copiar');
     if (copiar?.dataset.texto && navigator.clipboard) navigator.clipboard.writeText(copiar.dataset.texto);
@@ -624,6 +848,9 @@ function registrarEventos() {
 
     const backend = evento.target.closest('.seg[data-backend]');
     if (backend) atualizarSessao({ backend: backend.dataset.backend });
+
+    const processo = evento.target.closest('.btn-processo[data-pid]');
+    if (processo) encerrarProcesso(Number(processo.dataset.pid));
   });
 
   el('composer-form').addEventListener('submit', (evento) => {
@@ -675,15 +902,30 @@ function registrarEventos() {
   });
 }
 
+// Deep link por hash (#status, #monitor, #ajustes) — útil pra abrir a aba
+// certa num link externo ou no QR do celular.
+const SECOES_VALIDAS = new Set(['monitor', 'assistente', 'status', 'ajustes']);
+function aplicarHashInicial() {
+  const hash = window.location.hash.replace('#', '');
+  if (SECOES_VALIDAS.has(hash)) secaoAtiva.set(hash);
+}
+
 function registrarAssinaturas() {
   secaoAtiva.assinar(() => {
+    const secao = secaoAtiva.get();
+    if (SECOES_VALIDAS.has(secao)) {
+      history.replaceState(null, '', `#${secao}`);
+    }
     atualizarTopbar();
     atualizarVisao();
     if (secaoAtiva.get() !== 'monitor') pararMonitor();
+    if (secaoAtiva.get() !== 'status') pararStatus();
   });
   backendAtivo.assinar(atualizarTopbar);
   backendAtivo.assinar(sincronizarConversaRemota);
   mensagens.assinar(renderMensagens);
+  mensagens.assinar(renderConversas);
+  backendAtivo.assinar(renderConversas);
   processando.assinar(() => {
     atualizarTrabalho();
     atualizarComposer();
@@ -703,6 +945,13 @@ function registrarAssinaturas() {
   erroMonitor.assinar(renderMonitor);
   progressoGrade.assinar(atualizarBarrasTimeGrid);
   backendAtivo.assinar(renderMonitor);
+
+  estadoSistema.assinar(agendarRenderStatus);
+  contratoSistema.assinar(agendarRenderStatus);
+  historicoCpu.assinar(agendarRenderStatus);
+  historicoMemoria.assinar(agendarRenderStatus);
+  historicoGpu.assinar(agendarRenderStatus);
+  erroSistema.assinar(agendarRenderStatus);
   zoomGrade.assinar((valor) => {
     document.querySelectorAll('.camada-linha').forEach((linha) => linha.style.setProperty('--zoom', String(valor)));
     const pill = el('zoom-pill');
@@ -718,8 +967,10 @@ function registrarAssinaturas() {
 }
 
 registrarEventos();
+aplicarHashInicial();
 registrarAssinaturas();
 registrarRemoto();
+iniciarControlesJanela();
 atualizarTopbar();
 atualizarVisao();
 renderMensagens();
@@ -727,6 +978,7 @@ atualizarTrabalho();
 atualizarComposer();
 atualizarContexto();
 iniciarOrbs();
+aplicarMetalNoTexto(el('logo-metal'));
 configurarInstalacaoPwa();
 sondarBackend();
 iniciarPreloader();

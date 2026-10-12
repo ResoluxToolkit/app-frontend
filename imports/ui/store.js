@@ -16,23 +16,9 @@ export const secaoAtiva = new Sinal('assistente');
 // Estado global da tela Assistente (mock interativo)
 // ------------------------------------------------------------
 
-// Conversa padrão (Hello World) — também é o estado de "Nova conversa".
+// Conversa vazia: a lista e a thread nascem reais, sem conteúdo fake.
 function conversaPadrao() {
-  return [
-    { id: 1, papel: 'usuario', texto: 'Hello World!', hora: '03:29' },
-    {
-      id: 2,
-      papel: 'agente',
-      texto:
-        'Olá, Luizinho! Hello World de volta. Estou pronto quando você estiver: ' +
-        'posso verificar a câmera, acompanhar o monitor do Arena ou preparar o Quick Play.\n\n' +
-        'Por onde começamos?',
-      hora: '03:29',
-      tokens: 54,
-      estadoOrb: 'breathing',
-      streaming: false,
-    },
-  ];
+  return [];
 }
 
 // A conversa sobrevive ao refresh: carrega o que está no localStorage
@@ -89,7 +75,7 @@ export function atualizarMensagem(id, patch) {
 }
 
 export function resetarConversa() {
-  proximoId = 3;
+  proximoId = 1;
   mensagens.set(conversaPadrao());
   contextoPct.set(9);
   processando.set(false);
@@ -98,8 +84,7 @@ export function resetarConversa() {
 }
 
 // Turnos vindos do daemon (GET /api/v1/conversa): mapeia pro formato da
-// thread, renumera ids e ignora turnos fora do contrato. Lista vazia não
-// mexe na thread — o fallback local segue valendo.
+// thread, renumera ids e aceita lista vazia pra refletir o motor.
 export function definirConversa(turnos) {
   if (!Array.isArray(turnos)) return;
   const mapeadas = turnos
@@ -122,7 +107,6 @@ export function definirConversa(turnos) {
           }
         : {}),
     }));
-  if (mapeadas.length === 0) return;
   let id = 1;
   const numeradas = mapeadas.map((mensagem) => ({ id: id++, ...mensagem }));
   proximoId = id;

@@ -1,7 +1,6 @@
 # Resolux — Frontend (cliente web)
 
-Cliente web do Resolux: interface de chat com o assistente local que opera o
-Resolume Arena. App **estático** construído por **Vite**, com HTML/DOM vanilla e
+Cliente web do Resolux: Seu Resolume. Mais atento. App **estático** construído por **Vite**, com HTML/DOM vanilla e
 estado reativo mínimo (`Sinal`). UI dark no padrão "Liquid Glass", escrita em
 português (identificadores e comentários do código são pt-BR — mantenha assim).
 

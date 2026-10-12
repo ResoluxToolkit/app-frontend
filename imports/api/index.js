@@ -10,6 +10,19 @@ import { ResoluxDaemon } from './client.js';
 import { MockDaemon } from './mock.js';
 import { montarGrade, mesmaGrade, progressosTimeGrid } from '../ui/grade.js';
 
+export {
+  estadoSistema,
+  contratoSistema,
+  erroSistema,
+  historicoCpu,
+  historicoMemoria,
+  historicoGpu,
+  assinarSistema,
+  formatarBytes,
+  formatarTaxa,
+  formatarPct,
+} from './monitorSistema.js';
+
 const daemon = new ResoluxDaemon();
 const mock = new MockDaemon();
 
