@@ -26,15 +26,33 @@ Navegador (bundle estático)
 - **A UI nunca fala MCP, Ollama, Apple FM ou REST do Arena diretamente.** Tudo
   passa pela fachada (`obterBackend()`), e o `MockDaemon` implementa exatamente
   a mesma interface (`sondar`, `getSession`, `patchSession`, `getTools`,
-  `enviarChat`), incluindo a validação do contrato (campo desconhecido → 400,
-  mesmo envelope de erro `ErroApi`). O botão de origem na topbar mostra qual
-  motor respondeu — esconder isso é considerado bug.
+  `enviarChat`, `obterConversa`, `apagarConversa`, `assinarConversa`,
+  `assinarMonitor`, `urlThumbnail`), incluindo a validação do contrato (campo
+  desconhecido → 400, mesmo envelope de erro `ErroApi`). Método novo no
+  `ResoluxDaemon` exige o par no `MockDaemon`. O botão de origem na topbar
+  mostra qual motor respondeu — esconder isso é considerado bug.
 - Chat: um WebSocket por turno (`chat.send`), máximo um turno por conexão na
   v1. Timeout de turno: 5 minutos (turnos locais são longos: 34 s a 3 min+).
   `cancelar()` apenas fecha o socket — a v1 não tem cancelamento de turno.
 - Estado da sessão do motor (`GET/PATCH /api/v1/session`, `GET /api/v1/tools`)
   fica em `Sinal`es exportados por `imports/api/index.js` e é editado na aba
   Ajustes. O mock guarda a sessão só em memória (recarregar zera).
+- Conversa: a thread vive em `localStorage` (`imports/ui/persistencia.js`) e
+  sobrevive ao refresh. Com o daemon de pé, `GET /api/v1/conversa` +
+  `assinarConversa` (WebSocket) sincronizam a thread entre dispositivos
+  (`definirConversa`/`incorporarTurnos` no store); no mock não há espelho.
+- Aba Composição (seção `monitor`): a UI **assina** a grade
+  (`assinarMonitorGrade()` → `assinarMonitor`); o dono do poll de 1 s no Arena
+  é o daemon. `montarGrade` + `mesmaGrade` evitam re-render a cada tick (as
+  thumbnails piscariam); o progresso da TimeGrid anda num `Sinal` separado
+  (`progressoGrade`) pelo mesmo motivo.
+- Aba Status: segundo canal, fora do `/api/v1` — SSE em `/monitor`
+  (`127.0.0.1:8091`, `imports/api/monitorSistema.js`), reexportado pela
+  fachada. Não tem mock: sem motor a aba fica `offline`. Encerrar processo é
+  `POST /monitor/processes/{pid}/terminate`.
+- Em produção o bundle (`base: "./"`) é servido pelo próprio daemon, então
+  HTTP, WS e SSE resolvem pelo mesmo origem; em dev o proxy do Vite faz esse
+  papel para `/api/v1` e `/monitor`.
 
 ## Estrutura de diretórios
 
@@ -42,15 +60,21 @@ Navegador (bundle estático)
 | --- | --- |
 | `index.html` | Shell estático do app: topbar, seções, composer e placeholders. |
 | `client/main.js` | Entry do cliente: eventos delegados, render por seção, fluxo do agente, boot. |
-| `client/main.css` | ~1200 linhas; design tokens em `:root` (cores `--marca`, `--sucesso`, `--vidro` etc.) e estilos. |
-| `imports/api/index.js` | Fachada de backend + estado da sessão do motor. |
+| `client/main.css` | ~2500 linhas; design tokens em `:root` (cores `--marca`, `--sucesso`, `--vidro` etc.) e estilos. |
+| `imports/api/index.js` | Fachada de backend + estado da sessão do motor e do monitor da grade. |
 | `imports/api/client.js` | `ResoluxDaemon`: cliente HTTP/WebSocket da API v1. |
 | `imports/api/mock.js` | `MockDaemon`: mesma interface, respostas locais. |
+| `imports/api/monitorSistema.js` | Feed SSE `/monitor` da aba Status (CPU/RAM/GPU, portas, NDI etc.) e históricos. |
 | `imports/ui/signal.js` | `Sinal`: pub/sub reativo mínimo, substituto do ReactiveVar. |
-| `imports/ui/store.js` | Estado global da UI em `Sinal` (mensagens, seção ativa, contexto %, rótulos). |
+| `imports/ui/store.js` | Estado global da UI em `Sinal` (mensagens, seção ativa, contexto %, zoom, rótulos). |
+| `imports/ui/persistencia.js` | `localStorage` degradável (conversa, contexto, aviso de instalação). |
+| `imports/ui/markdown.js` | Markdown → HTML das respostas do agente (escapa antes de formatar). |
+| `imports/ui/dashboard.js` | HTML dos gráficos e da lista de processos da aba Status. |
+| `imports/ui/remoto.js` | QR Code sem dependências + URL de LAN do painel remoto. |
+| `imports/ui/preloader.js`, `pwa.js`, `wco.js`, `logoMetal.js` | Abertura, instalação PWA/iOS, Window Controls Overlay e logo `metal-fx`. |
 | `imports/ui/orb.js` | Renderer vanilla dos ThinkingOrbs (`thinking-orbs/engine`) em `<canvas data-orb="estado">`; respeita `prefers-reduced-motion`. |
 | `imports/ui/grade.js` | Parser do `GET /composition` do Arena (leitura pura): endereço `camada.coluna`, slot, clipe ativo e regras de thumbnail. Espelha as regras da engine Swift. |
-| `tests/*.test.js` | Testes Node nativos para parser da grade, assinatura do monitor, zoom e sinal. |
+| `tests/*.test.js` | Testes Node nativos (grade, monitor do sistema, store/conversa, persistência, markdown, QR, preloader, URL do WS). |
 | `skills/`, `.agents/skills/` | Skills de agente (transições CSS, efeitos de UI). Ver abaixo. |
 | `dist/` | Saída do build estático. Gerada; não edite. |
 
@@ -60,12 +84,17 @@ das mesmas skills para diferentes agentes — não edite à mão.
 ## Comandos
 
 ```bash
-npm start        # vite dev server em http://localhost:3003 (com proxy /api/v1)
+npm start        # vite dev server em http://localhost:3003 (proxy /api/v1 e /monitor)
 npm run dev      # idem
 npm run build    # gera o bundle estático em dist/
 npm run preview  # serve dist/ em http://localhost:3003
-npm test         # node --test (parser da grade, monitor, zoom e sinal)
+npm test         # node --test tests/*.test.js
+node --test tests/grade.test.js   # um arquivo só
 ```
+
+Não há lint nem typecheck configurados. O `vite.config.js` já sobe com
+`host: true` e `allowedHosts` (`mac`, tailnet) — o dev server fica acessível
+na rede para o painel remoto/QR.
 
 Requisitos: Node + dependências do `package.json`. Para o backend real, a engine
 Swift precisa estar rodando (`ResoluxServer` em `127.0.0.1:1980`); sem ela o
@@ -73,6 +102,17 @@ app abre automaticamente no mock. O bundle de produção existe (`npm run
 build`), mas não há CI nem deploy configurado — a verificação padrão é
 `npm test` + o app rodando (`npm start`, abrir http://localhost:3003 e
 exercitar a tela).
+
+Para capturar a tela sem abrir navegador (macOS, via WebKit), use
+`.tools/websnap.swift`:
+
+```bash
+swift .tools/websnap.swift <url> <saida.png> [largura] [altura] [esperaSegundos]
+```
+
+Argumentos opcionais extras: um JS de interação, a espera depois dele e um
+segundo PNG (veja o cabeçalho do arquivo). Os erros de JS da página saem no
+stderr, na linha `DEBUG` (campo `errs`).
 
 O dev usa a porta fixa `3003` de propósito: fica longe do daemon (`1980`) e do
 REST do Arena (`8080` de fábrica, `8008` medido nesta máquina). O proxy do
@@ -85,11 +125,15 @@ Vite mantém `/api/v1` no mesmo origem durante o desenvolvimento.
   (banner na aba Ajustes, mensagem de erro na thread), não só no console.
   Sessão do mock é sempre rotulada como mock.
 - **Nada de fingir capacidade**: o mock anuncia zero ferramentas em vez de
-  inventar uma lista; seções sem tela usam `secaoEmBreve` ("fora desta
-  tacada"), que existem só no app nativo.
+  inventar uma lista nem thumbnails; seção sem tela cai no `#view-em-breve`.
 - **Trabalho por tacada** (herdado do processo do projeto): um recurso por
-  vez, menor escopo possível, sem refatoração lateral. Seções Câmera, Monitor
-  e Starter são placeholder de propósito nesta tacada.
+  vez, menor escopo possível, sem refatoração lateral. As seções com tela
+  hoje são `monitor` (rótulo "Composição"), `assistente`, `status` e
+  `ajustes`.
+- Render: cada seção tem um `render*` em `client/main.js` que reescreve
+  `innerHTML` a partir dos `Sinal`es (`registrarAssinaturas`); eventos são
+  delegados em `registrarEventos`. Dado que muda a cada tick fica fora do
+  modelo renderizado e é aplicado por patch direto no DOM.
 - HTML/DOM vanilla — sem React e sem template engine. Toda interpolação vinda
   do backend passa por `escaparHtml` antes de `innerHTML`.
 - Estados do agente/orb são um enum fechado: `breathing | listening |
@@ -100,8 +144,11 @@ Vite mantém `/api/v1` no mesmo origem durante o desenvolvimento.
 ## Testes
 
 `npm test` roda o runner nativo do Node (`node --test`) sobre `tests/*.test.js`.
-A suíte cobre o parser da grade, a assinatura do monitor, o zoom e o `Sinal`;
-ao adicionar lógica nova (especialmente em `imports/api`), escreva o teste junto.
+Os testes rodam sem DOM: módulos testáveis guardam acessos a `window`/
+`localStorage` (`typeof window !== 'undefined'`, `globalThis.localStorage?.`)
+e recebem dependências por parâmetro (ex.: `assinarSistema(CriadorFonte, url)`,
+`resolverUrlWs(loc)`). Ao adicionar lógica nova (especialmente em
+`imports/api`), mantenha esse formato e escreva o teste junto.
 
 ## Git e repositório
 
