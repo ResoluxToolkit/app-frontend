@@ -12,7 +12,7 @@ export default defineConfig({
         ws: true,
       },
       "/monitor": {
-        target: "http://127.0.0.1:8091",
+        target: "http://127.0.0.1:1980",
       },
     },
   },

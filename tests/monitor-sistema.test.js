@@ -186,5 +186,5 @@ test('assinarSistema sem origem http cai no endereço local do motor', () => {
   }
   const inscricao = assinarSistema(FonteGruda);
   inscricao.cancelar();
-  assert.equal(capturado, 'http://127.0.0.1:8091/monitor');
+  assert.equal(capturado, 'http://127.0.0.1:1980/monitor');
 });

@@ -19,8 +19,10 @@ Navegador (bundle estático)
        └─ imports/api/mock.js    → MockDaemon    → respostas locais
 ```
 
-- O daemon real é o `ResoluxServer` da engine Swift, escutando apenas em
-  `127.0.0.1:1980` (HTTP `/api/v1`, WebSocket `/api/v1/ws`).
+- O daemon real é o `ResoluxServer` da engine Swift, escutando em
+  `127.0.0.1:1980` por default (HTTP `/api/v1`, WebSocket `/api/v1/ws`);
+  em release o `RESOLUX_BIND=0.0.0.0` abre a LAN/Tailscale e o bundle estático
+  sai da mesma origem do daemon.
 - Na abertura, `sondarBackend()` faz `GET /api/v1/health` com timeout de 2 s.
   Daemon de pé → backend `daemon`; fora do ar → backend `mock` (sempre "de pé").
 - **A UI nunca fala MCP, Ollama, Apple FM ou REST do Arena diretamente.** Tudo

@@ -21,7 +21,7 @@ const LIMITE_HISTORICO_SISTEMA = 60;
 const URL_PADRAO =
   typeof window !== 'undefined' && window.location.protocol.startsWith('http')
     ? '/monitor'
-    : 'http://127.0.0.1:8091/monitor';
+    : 'http://127.0.0.1:1980/monitor';
 
 function horaCurta(data) {
   const partes = (valor) => String(valor).padStart(2, '0');
