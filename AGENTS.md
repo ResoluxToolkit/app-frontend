@@ -48,6 +48,10 @@ Navegador (bundle estático)
   é o daemon. `montarGrade` + `mesmaGrade` evitam re-render a cada tick (as
   thumbnails piscariam); o progresso da TimeGrid anda num `Sinal` separado
   (`progressoGrade`) pelo mesmo motivo.
+- Aba Quick Play (seção `quickplay`): port da `QuickPlayView` nativa. Lê a
+  mesma assinatura da Composição (uma só, viva enquanto uma das duas está
+  na tela) e mostra os blocos em camada crescente via `blocosQuickPlay`.
+  Leitura pura: sem disparo de clipe, como no nativo.
 - Aba Status: segundo canal, fora do `/api/v1` — SSE em `/monitor`
   (`127.0.0.1:8091`, `imports/api/monitorSistema.js`), reexportado pela
   fachada. Não tem mock: sem motor a aba fica `offline`. Encerrar processo é
@@ -130,8 +134,8 @@ Vite mantém `/api/v1` no mesmo origem durante o desenvolvimento.
   inventar uma lista nem thumbnails; seção sem tela cai no `#view-em-breve`.
 - **Trabalho por tacada** (herdado do processo do projeto): um recurso por
   vez, menor escopo possível, sem refatoração lateral. As seções com tela
-  hoje são `monitor` (rótulo "Composição"), `assistente`, `status` e
-  `ajustes`.
+  hoje são `quickplay` (rótulo "Quick Play"), `monitor` (rótulo
+  "Composição"), `assistente`, `status` e `ajustes`.
 - Render: cada seção tem um `render*` em `client/main.js` que reescreve
   `innerHTML` a partir dos `Sinal`es (`registrarAssinaturas`); eventos são
   delegados em `registrarEventos`. Dado que muda a cada tick fica fora do

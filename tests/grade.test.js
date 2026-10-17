@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { formatarTempo, montarGrade, rotuloCamada, mesmaGrade, progressosTimeGrid } from '../imports/ui/grade.js';
+import { formatarTempo, montarGrade, rotuloCamada, mesmaGrade, progressosTimeGrid, blocosQuickPlay, resumoQuickPlay } from '../imports/ui/grade.js';
 import { MockDaemon } from '../imports/api/mock.js';
 
 const composicao = {
@@ -225,5 +225,35 @@ describe('MockDaemon', () => {
     inscricao.cancelar();
     await new Promise((resolve) => setTimeout(resolve, 50));
     assert.equal(chamadas, 1);
+  });
+});
+
+describe('Quick Play', () => {
+  it('achata a grade em camada crescente e coluna crescente', () => {
+    const grade = montarGrade({
+      layers: [
+        { name: { value: 'Layer #' }, clips: [{ id: 1, name: { value: 'A' }, transport: {} }, { id: 2, name: { value: '' } }] },
+        { name: { value: 'Layer #' }, active_clip: { id: 3 }, clips: [{ id: 3, name: { value: 'B' }, transport: {} }] },
+      ],
+    });
+    const blocos = blocosQuickPlay(grade);
+    assert.deepEqual(blocos.map((bloco) => bloco.id), ['1.1', '1.2', '2.1']);
+    assert.deepEqual(blocos.map((bloco) => bloco.camada), [1, 1, 2]);
+    assert.equal(blocos[2].ativo, true);
+    // Não mexe na grade do monitor (que segue invertida).
+    assert.deepEqual(grade.camadas.map((camada) => camada.numero), [2, 1]);
+  });
+
+  it('conta clips preenchidos e thumbnails reais', () => {
+    const blocos = [
+      { preenchido: true, thumbUrl: '/t/1' },
+      { preenchido: true, thumbUrl: null },
+      { preenchido: false, thumbUrl: null },
+    ];
+    assert.deepEqual(resumoQuickPlay(blocos), { clips: 2, thumbnails: 1 });
+  });
+
+  it('sem grade não há blocos', () => {
+    assert.deepEqual(blocosQuickPlay(null), []);
   });
 });

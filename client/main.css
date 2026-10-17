@@ -1544,6 +1544,153 @@ button {
 }
 
 /* ------------------------------------------------------------
+   Quick Play — port da QuickPlayView nativa (grade 3 colunas,
+   bloco em vidro com tinta ciano; ativo com tinta violeta)
+   ------------------------------------------------------------ */
+.monitor-icone.quickplay-icone {
+    color: var(--violeta);
+    background: var(--violeta-soft);
+    border-color: var(--violeta-border);
+}
+
+#quickplay-conteudo {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+#quickplay-conteudo .nota-mock {
+    margin: 0;
+}
+
+.qp-info {
+    padding: 18px 20px;
+}
+
+.qp-info h2 {
+    margin: 0 0 6px;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.qp-info p {
+    margin: 0;
+    color: var(--texto-3);
+    font-size: 13px;
+}
+
+.qp-grade {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.qp-bloco {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(100, 210, 255, 0.07);
+    border-color: rgba(255, 255, 255, 0.12);
+    transition:
+        background var(--duracao-media) var(--ease-out),
+        border-color var(--duracao-media) var(--ease-out);
+}
+
+.qp-bloco.ativo {
+    background: rgba(191, 90, 242, 0.22);
+    border-color: var(--violeta);
+}
+
+.qp-midia {
+    position: relative;
+    height: 96px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--borda-vidro);
+    display: grid;
+    place-items: center;
+}
+
+.qp-bloco.ativo .qp-midia {
+    border: 1.5px solid var(--violeta);
+}
+
+.qp-thumb {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+}
+
+.qp-thumb.thumb-falha {
+    display: none;
+}
+
+.qp-placeholder {
+    color: var(--info);
+}
+
+.qp-bloco.vazio .qp-placeholder {
+    color: var(--texto-3);
+}
+
+.qp-placeholder svg {
+    width: 26px;
+    height: 26px;
+}
+
+.qp-camada {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--texto-3);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.qp-tocando {
+    display: inline-flex;
+    color: var(--info);
+}
+
+.qp-tocando svg {
+    width: 11px;
+    height: 11px;
+}
+
+.qp-nome {
+    color: var(--texto);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+
+.qp-bloco.ativo .qp-nome {
+    font-weight: 700;
+}
+
+.qp-bloco.vazio .qp-nome {
+    color: var(--texto-3);
+}
+
+@media (max-width: 640px) {
+    .qp-grade {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* ------------------------------------------------------------
    Monitor Arena — grade de clips (leitura pura, poll de 3 s)
    ------------------------------------------------------------ */
 .monitor-col {

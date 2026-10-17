@@ -193,3 +193,23 @@ export function montarGrade(composicao) {
   camadas.reverse();
   return { camadas, ativo };
 }
+
+// Quick Play: a mesma grade do monitor, em blocos na ordem do app nativo
+// (QuickPlayView.layerGroups: camada crescente, depois coluna). A grade
+// do monitor vem invertida (última camada no topo, como o Arena); aqui
+// não. Leitura pura, sem disparo de clipe — igual ao nativo.
+export function blocosQuickPlay(grade) {
+  if (!grade || !Array.isArray(grade.camadas)) return [];
+  return [...grade.camadas]
+    .sort((a, b) => a.numero - b.numero)
+    .flatMap((camada) => camada.celulas.map((celula) => ({ ...celula, camada: camada.numero })));
+}
+
+// Linha de resumo do card "Grade de clips": clips preenchidos e quantos
+// têm thumbnail de verdade (o mock nunca tem).
+export function resumoQuickPlay(blocos) {
+  return {
+    clips: blocos.filter((bloco) => bloco.preenchido).length,
+    thumbnails: blocos.filter((bloco) => bloco.thumbUrl).length,
+  };
+}

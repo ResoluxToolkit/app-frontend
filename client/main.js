@@ -25,7 +25,7 @@ import { Sinal } from '../imports/ui/signal';
 import { iniciarOrbs } from '../imports/ui/orb';
 import { aplicarMetalNoTexto } from '../imports/ui/logoMetal';
 import { markdownParaHtml } from '../imports/ui/markdown';
-import { formatarTempo } from '../imports/ui/grade';
+import { formatarTempo, blocosQuickPlay, resumoQuickPlay } from '../imports/ui/grade';
 import { desenharQr, gerarMatrizQr, urlRemota } from '../imports/ui/remoto';
 import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
@@ -119,13 +119,14 @@ function atualizarVisao() {
   el('view-monitor').hidden = secao !== 'monitor';
   el('view-ajustes').hidden = secao !== 'ajustes';
   el('view-status').hidden = secao !== 'status';
-  el('view-em-breve').hidden = secao !== 'quickplay';
+  el('view-quickplay').hidden = secao !== 'quickplay';
+  el('view-em-breve').hidden = SECOES_VALIDAS.has(secao);
   if (!el('view-em-breve').hidden) {
     el('rotulo-em-breve').textContent = ROTULOS_SECAO[secao] || secao;
   }
   el('app-body').classList.toggle('app-body-simples', secao !== 'assistente');
 
-  if (secao === 'monitor') iniciarMonitor();
+  if (SECOES_GRADE.has(secao)) iniciarMonitor();
   if (secao === 'status') iniciarStatus();
   if (secao === 'ajustes') renderAjustes();
 }
@@ -438,9 +439,14 @@ function alternarVoz() {
 
 let inscricaoMonitor = null;
 
+// Composição e Quick Play leem a mesma grade: uma assinatura só, viva
+// enquanto uma das duas estiver na tela.
+const SECOES_GRADE = new Set(['monitor', 'quickplay']);
+
 function iniciarMonitor() {
   if (!inscricaoMonitor) inscricaoMonitor = assinarMonitorGrade();
   renderMonitor();
+  renderQuickPlay();
 }
 
 function pararMonitor() {
@@ -530,6 +536,62 @@ function renderMonitor() {
     if (cartao) cartao.classList.add('arrastando');
   }
   iniciarOrbs();
+}
+
+// ------------------------------------------------------------
+// Quick Play — port da QuickPlayView nativa: blocos da grade em
+// camada crescente, thumbnail, camada e nome; ativo em violeta.
+// Leitura pura, sem disparo de clipe (igual ao nativo nesta tacada).
+// ------------------------------------------------------------
+
+const ICONE_BLOCO_CHEIO = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1.5" y="3.5" width="10" height="8" rx="1.5"/><path d="M4 1.5h9a1.5 1.5 0 0 1 1.5 1.5v6.5"/><circle cx="5" cy="6.5" r="1"/><path d="M11.5 10l-3-3-5 4.5"/></svg>';
+const ICONE_BLOCO_VAZIO = '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-dasharray="2 2" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="2"/></svg>';
+const ICONE_TOCANDO = '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.5 2.8v10.4L13 8z"/></svg>';
+
+function htmlBlocoQuickPlay(bloco) {
+  const classes = ['qp-bloco', 'vidro'];
+  if (bloco.ativo) classes.push('ativo');
+  if (!bloco.preenchido) classes.push('vazio');
+  const midia = bloco.thumbUrl
+    ? `<img class="qp-thumb" src="${escaparHtml(bloco.thumbUrl)}" alt="" loading="lazy" draggable="false" onerror="this.classList.add('thumb-falha')">`
+    : `<span class="qp-placeholder">${bloco.preenchido ? ICONE_BLOCO_CHEIO : ICONE_BLOCO_VAZIO}</span>`;
+  const nome = bloco.preenchido ? bloco.nome : 'slot vazio';
+  const titulo = `${bloco.id} · ${nome}${bloco.ativo ? ' · tocando' : ''}`;
+  return `
+    <div class="${classes.join(' ')}" title="${escaparHtml(titulo)}">
+      <div class="qp-midia">${midia}</div>
+      <div class="qp-camada">${bloco.ativo ? `<span class="qp-tocando">${ICONE_TOCANDO}</span>` : ''}camada ${bloco.camada}</div>
+      <div class="qp-nome">${escaparHtml(nome)}</div>
+    </div>
+  `;
+}
+
+function renderQuickPlay() {
+  const grade = gradeMonitor.get();
+  const erro = erroMonitor.get();
+  const status = estadoMonitor.get();
+  const conectado = status === 'ok';
+  const pill = el('quickplay-status');
+  pill.textContent = conectado ? 'conectado' : status === 'pollando' ? 'pollando…' : status === 'erro' ? 'offline' : 'parado';
+  pill.className = `pill-status ${conectado ? 'pill-sucesso' : status === 'erro' ? 'pill-alerta' : ''}`;
+  const origem = backendAtivo.get() === 'mock' ? 'Mock local' : 'Arena REST';
+  el('quickplay-subtitulo').textContent = conectado ? `${origem} · leitura pura` : 'aguardando Arena…';
+
+  const blocos = blocosQuickPlay(grade);
+  const { clips, thumbnails } = resumoQuickPlay(blocos);
+  const resumo = !grade
+    ? (erro ? 'Arena indisponível' : 'aguardando Arena…')
+    : blocos.length === 0 ? 'grade vazia' : `clips ${clips} · thumbnails ${thumbnails}`;
+
+  el('quickplay-conteudo').innerHTML = `
+    ${backendAtivo.get() === 'mock' ? '<p class="nota-mock">Mock local: grade de exemplo, sem Arena de verdade — por isso não há thumbnails.</p>' : ''}
+    ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Arena falhou:</strong> ${escaparHtml(erro)}</div>` : ''}
+    <section class="qp-info vidro">
+      <h2>Grade de clips</h2>
+      <p>${escaparHtml(resumo)}</p>
+    </section>
+    ${blocos.length ? `<div class="qp-grade">${blocos.map(htmlBlocoQuickPlay).join('')}</div>` : ''}
+  `;
 }
 
 // A barra vive fora do re-render: position muda a cada tick e mexer no
@@ -902,9 +964,9 @@ function registrarEventos() {
   });
 }
 
-// Deep link por hash (#status, #monitor, #ajustes) — útil pra abrir a aba
+// Deep link por hash (#quickplay, #status, #monitor, #ajustes) — útil pra abrir a aba
 // certa num link externo ou no QR do celular.
-const SECOES_VALIDAS = new Set(['monitor', 'assistente', 'status', 'ajustes']);
+const SECOES_VALIDAS = new Set(['quickplay', 'monitor', 'assistente', 'status', 'ajustes']);
 function aplicarHashInicial() {
   const hash = window.location.hash.replace('#', '');
   if (SECOES_VALIDAS.has(hash)) secaoAtiva.set(hash);
@@ -918,7 +980,7 @@ function registrarAssinaturas() {
     }
     atualizarTopbar();
     atualizarVisao();
-    if (secaoAtiva.get() !== 'monitor') pararMonitor();
+    if (!SECOES_GRADE.has(secaoAtiva.get())) pararMonitor();
     if (secaoAtiva.get() !== 'status') pararStatus();
   });
   backendAtivo.assinar(atualizarTopbar);
@@ -945,6 +1007,10 @@ function registrarAssinaturas() {
   erroMonitor.assinar(renderMonitor);
   progressoGrade.assinar(atualizarBarrasTimeGrid);
   backendAtivo.assinar(renderMonitor);
+  gradeMonitor.assinar(renderQuickPlay);
+  estadoMonitor.assinar(renderQuickPlay);
+  erroMonitor.assinar(renderQuickPlay);
+  backendAtivo.assinar(renderQuickPlay);
 
   estadoSistema.assinar(agendarRenderStatus);
   contratoSistema.assinar(agendarRenderStatus);
