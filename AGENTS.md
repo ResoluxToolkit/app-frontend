@@ -101,8 +101,10 @@ na rede para o painel remoto/QR.
 Requisitos: Node + dependências do `package.json`. Para o backend real, a engine
 Swift precisa estar rodando (`ResoluxServer` em `127.0.0.1:1980`); sem ela o
 app abre automaticamente no mock. O bundle de produção existe (`npm run
-build`), mas não há CI nem deploy configurado — a verificação padrão é
-`npm test` + o app rodando (`npm start`, abrir http://localhost:3003 e
+build`), mas não há deploy configurado. O CI
+(`.github/workflows/test.yml`) roda `npm ci` + `npm test` em push e PR para
+`main` — por isso o `package-lock.json` precisa estar em sincronia com o
+`package.json`. A verificação padrão é `npm test` + o app rodando (`npm start`, abrir http://localhost:3003 e
 exercitar a tela).
 
 Para capturar a tela sem abrir navegador (macOS, via WebKit), use
