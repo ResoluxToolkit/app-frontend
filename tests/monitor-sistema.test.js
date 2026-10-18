@@ -14,9 +14,7 @@ import {
   formatarTaxa,
 } from '../imports/api/monitorSistema.js';
 import {
-  graficoCpuHtml,
-  graficoMemoriaHtml,
-  graficoGpuHtml,
+  metricasSistemaHtml,
   processosSistemaHtml,
 } from '../imports/ui/dashboard.js';
 
@@ -76,9 +74,9 @@ test('histórico de CPU alimenta o gráfico com amostras recentes', () => {
   const historico = historicoCpu.get();
   assert.equal(historico.length, 3);
   assert.deepEqual(historico.map((amostra) => amostra.valor), [12.4, 88.6, 88.6]);
-  assert.match(graficoCpuHtml(historico), /<polyline[^>]+points="[\d.,\s]+"/);
-  assert.match(graficoCpuHtml(historico), /88\.6%/);
-  assert.match(graficoCpuHtml(historico, contratoSistema.get()), /user 70% · sys 18%/);
+  assert.match(metricasSistemaHtml({}, { cpu: historico }), /<polyline[^>]+points="[\d.,\s]+"/);
+  assert.match(metricasSistemaHtml({}, { cpu: historico }), /88\.6%/);
+  assert.match(metricasSistemaHtml(contratoSistema.get(), { cpu: historico }), /user 70% · sys 18%/);
 });
 
 test('histórico de RAM e GPU alimenta os gráficos', () => {
@@ -104,12 +102,13 @@ test('histórico de RAM e GPU alimenta os gráficos', () => {
   assert.deepEqual(gpu.map((amostra) => amostra.valor), [10, 80]);
 
   const contrato = contratoSistema.get();
-  assert.match(graficoMemoriaHtml(memoria, contrato), /Uso de RAM/);
-  assert.match(graficoMemoriaHtml(memoria, contrato), /75%/);
-  assert.match(graficoMemoriaHtml(memoria, contrato), /750 B de 1000 B/);
-  assert.match(graficoGpuHtml(gpu, contrato), /Uso de GPU/);
-  assert.match(graficoGpuHtml(gpu, contrato), /80%/);
-  assert.match(graficoGpuHtml(gpu, contrato), /renderer 61% · tiler 22%/);
+  const tiles = metricasSistemaHtml(contrato, { memoria, gpu });
+  assert.match(tiles, /<h3>RAM<\/h3>/);
+  assert.match(tiles, /75%/);
+  assert.match(tiles, /750 B de 1000 B/);
+  assert.match(tiles, /<h3>GPU<\/h3>/);
+  assert.match(tiles, /80%/);
+  assert.match(tiles, /renderer 61% · tiler 22%/);
 });
 
 test('monitor de processos mostra externos com botão de encerrar', () => {

@@ -65,6 +65,12 @@ Navegador (bundle estático)
   (`127.0.0.1:8091`, `imports/api/monitorSistema.js`), reexportado pela
   fachada. Não tem mock: sem motor a aba fica `offline`. Encerrar processo é
   `POST /monitor/processes/{pid}/terminate`.
+  A tela abre com um **veredito** (`avaliarSaude`): CPU/GPU contam pela média
+  das últimas 20 amostras (um pico não derruba), e memória conta por uso e por
+  compressão, não por "livre" (no macOS ela fica baixa por projeto). Em seguida
+  vêm os tiles de métrica e a lista de processos; o resto (portas, NDI, MIDI,
+  Art-Net, captura, áudio, displays) fica no bloco recolhível "Detalhes
+  técnicos", cujo estado aberto/fechado sobrevive ao re-render.
 - Em produção o bundle (`base: "./"`) é servido pelo próprio daemon, então
   HTTP, WS e SSE resolvem pelo mesmo origem; em dev o proxy do Vite faz esse
   papel para `/api/v1` e `/monitor`.
@@ -90,7 +96,9 @@ Navegador (bundle estático)
 | `imports/ui/store.js` | Estado global da UI em `Sinal` (mensagens, seção ativa, contexto %, zoom, rótulos). |
 | `imports/ui/persistencia.js` | `localStorage` degradável (conversa, contexto, aviso de instalação). |
 | `imports/ui/markdown.js` | Markdown → HTML das respostas do agente (escapa antes de formatar). |
-| `imports/ui/dashboard.js` | HTML dos gráficos e da lista de processos da aba Status. |
+| `imports/ui/dashboard.js` | Tiles de métrica (CPU, RAM, GPU, rede) e lista de processos da aba Status. |
+| `imports/ui/widgets.js` | Kit de widgets em funções puras que devolvem HTML: `sparkline`, `tileMetrica`, `veredito`, `grupoRecolhivel`. A cor de cada tile vem de `--acento`. |
+| `imports/ui/saude.js` | `avaliarSaude`: veredito da aba Status (Tudo certo / Atenção / Problema) por regras sobre o contrato do motor e o histórico recente. Limites em `LIMITES`. |
 | `imports/ui/remoto.js` | QR Code sem dependências + URL de LAN do painel remoto. |
 | `imports/ui/preloader.js`, `pwa.js`, `wco.js`, `logoMetal.js` | Abertura, instalação PWA/iOS, Window Controls Overlay e logo `metal-fx`. |
 | `imports/ui/orb.js` | Renderer vanilla dos ThinkingOrbs (`thinking-orbs/engine`) em `<canvas data-orb="estado">`; respeita `prefers-reduced-motion`. |
