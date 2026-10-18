@@ -4,6 +4,9 @@
 // (Safari privado, Node nos testes) tudo vive só em memória.
 // ------------------------------------------------------------
 
+import { sanitizarAtalho } from './atalhos.js';
+
+const CHAVE_ATALHOS = 'resolux-atalhos-v1';
 const CHAVE_MENSAGENS = 'resolux-conversa-v1';
 const CHAVE_CONTEXTO = 'resolux-contexto-v1';
 const CHAVE_INSTALAR_VISTO = 'resolux-instalar-visto-v1';
@@ -67,6 +70,15 @@ export function carregarContexto(padrao) {
 
 export function salvarContexto(valor) {
   gravarJson(CHAVE_CONTEXTO, limitar(Number(valor) || 0, CONTEXTO_MIN, CONTEXTO_MAX));
+}
+
+export function carregarAtalhos() {
+  const brutos = lerJson(CHAVE_ATALHOS, []);
+  return Array.isArray(brutos) ? brutos.map(sanitizarAtalho).filter(Boolean) : [];
+}
+
+export function salvarAtalhos(atalhos) {
+  gravarJson(CHAVE_ATALHOS, (atalhos ?? []).map(sanitizarAtalho).filter(Boolean));
 }
 
 export function instalacaoVista() {

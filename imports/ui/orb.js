@@ -9,10 +9,10 @@ import { resolvePreset, MODE_FRAMES, paintFrame } from 'thinking-orbs/engine';
 // Tint por estado, seguindo os tokens da spec Resolux.
 const TINTS = {
   breathing: null, // grayscale neutro (ink padrão)
-  listening: { r: 48, g: 209, b: 88 }, // sucesso #30D158
-  searching: { r: 100, g: 210, b: 255 }, // info #64D2FF
-  composing: { r: 242, g: 107, b: 51 }, // marca #F26B33
-  working: { r: 191, g: 90, b: 242 }, // violeta #BF5AF2
+  listening: { r: 184, g: 187, b: 38 }, // sucesso #b8bb26
+  searching: { r: 131, g: 165, b: 152 }, // info #83a598
+  composing: { r: 254, g: 128, b: 25 }, // marca #fe8019
+  working: { r: 211, g: 134, b: 155 }, // violeta #d3869b
 };
 
 const ESTADOS_VALIDOS = new Set(Object.keys(TINTS));

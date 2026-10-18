@@ -6,31 +6,41 @@
 
 :root {
     /* Tokens de cor */
-    --fundo: #0a0a0d;
-    --vidro: rgba(255, 255, 255, 0.05);
-    --vidro-forte: rgba(255, 255, 255, 0.08);
-    --borda-vidro: rgba(255, 255, 255, 0.1);
-    --texto: #f5f5f7;
-    --texto-2: #9c9ca3;
-    --texto-3: #6e6e75;
-    --marca: #f26b33;
-    --sucesso: #30d158;
+    /* Desktop: Liquid Glass Tinted (dark), de Nezz/homeassistant-visionos-theme */
+    --fundo: #1b1107;
+    --vidro: rgba(36, 36, 44, 0.5);
+    --vidro-forte: rgba(36, 36, 44, 0.72);
+    --borda-vidro: rgba(152, 152, 157, 0.3);
+    --texto: rgba(255, 255, 255, 0.96);
+    --texto-2: rgba(235, 235, 245, 0.6);
+    --texto-3: rgba(235, 235, 245, 0.4);
+    --marca: #ff9f0a;
+    --sucesso: #32d74b;
     --alerta: #ffd60a;
     --perigo: #ff453a;
-    --info: #64d2ff;
+    --info: #0a84ff;
     --violeta: #bf5af2;
 
+    /* Acentos de métrica/estado (nomes herdados do Gruvbox; no desktop valem as cores de sistema) */
+    --gb-vermelho: #ff453a;
+    --gb-verde: #32d74b;
+    --gb-amarelo: #ffd60a;
+    --gb-azul: #0a84ff;
+    --gb-roxo: #bf5af2;
+    --gb-aqua: #5ac8f5;
+    --gb-laranja: #ff9f0a;
+
     /* Marca — par soft/border (15% + 35%) */
-    --marca-soft: rgba(242, 107, 51, 0.15);
-    --marca-border: rgba(242, 107, 51, 0.35);
+    --marca-soft: rgba(255, 159, 10, 0.15);
+    --marca-border: rgba(255, 159, 10, 0.35);
     --violeta-soft: rgba(191, 90, 242, 0.15);
     --violeta-border: rgba(191, 90, 242, 0.4);
     --perigo-soft: rgba(255, 69, 58, 0.15);
     --perigo-border: rgba(255, 69, 58, 0.35);
-    --sucesso-soft: rgba(48, 209, 88, 0.15);
+    --sucesso-soft: rgba(50, 215, 75, 0.15);
 
     /* Formas e espaço (grade 4pt) */
-    --raio-card: 20px;
+    --raio-card: 34px;
     --raio-bolha: 18px;
     --raio-chip: 14px;
     --sombra: 0 8px 24px rgba(0, 0, 0, 0.4);
@@ -102,8 +112,8 @@ button {
     right: -160px;
     background: radial-gradient(
         circle,
-        rgba(191, 90, 242, 0.13),
-        rgba(100, 210, 255, 0.05) 55%,
+        rgba(211, 134, 155, 0.13),
+        rgba(131, 165, 152, 0.05) 55%,
         transparent 70%
     );
 }
@@ -114,8 +124,8 @@ button {
     left: 12%;
     background: radial-gradient(
         circle,
-        rgba(242, 107, 51, 0.11),
-        rgba(242, 107, 51, 0.04) 55%,
+        rgba(254, 128, 25, 0.11),
+        rgba(254, 128, 25, 0.04) 55%,
         transparent 70%
     );
 }
@@ -124,11 +134,25 @@ button {
    Vidro (fallback de .glassEffect regular)
    ------------------------------------------------------------ */
 .vidro {
-    background: var(--vidro);
+    background:
+        linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--acento, var(--marca)) 11%, transparent),
+            transparent 55%
+        ),
+        var(--vidro);
     border: 1px solid var(--borda-vidro);
     border-radius: var(--raio-card);
-    backdrop-filter: blur(18px) saturate(1.3);
-    -webkit-backdrop-filter: blur(18px) saturate(1.3);
+    /* Camada Liquid Glass: refração (blur + saturação), brilho de borda
+       superior e sombra interna de base, por cima das animações */
+    box-shadow:
+        3px 3px 0.5px -3.5px rgba(255, 255, 255, 0.7) inset,
+        -2px -2px 0.5px -2px rgba(255, 255, 255, 0.55) inset,
+        0 0 8px 1px rgba(255, 255, 255, 0.18) inset,
+        0 0 0 0.5px rgba(0, 0, 0, 0.15),
+        0 0.5px 1px 0 rgba(0, 0, 0, 0.12);
+    backdrop-filter: blur(12px) saturate(1.3);
+    -webkit-backdrop-filter: blur(12px) saturate(1.3);
 }
 
 /* ------------------------------------------------------------
@@ -212,7 +236,7 @@ button {
     height: 10px;
     border-radius: 50%;
     background: var(--marca);
-    box-shadow: 0 0 12px rgba(242, 107, 51, 0.8);
+    box-shadow: 0 0 12px rgba(254, 128, 25, 0.8);
 }
 /* Metal líquido (metal-fx) no "Toolkit": o span hospeda o canvas do
    shader e o rim; letter-spacing zerado para os glifos do canvas
@@ -294,7 +318,7 @@ button {
     color: var(--sucesso);
 }
 .motor-indicador.sucesso svg {
-    filter: drop-shadow(0 0 6px rgba(48, 209, 88, 0.7));
+    filter: drop-shadow(0 0 6px rgba(184, 187, 38, 0.7));
 }
 .motor-indicador.marca {
     color: var(--marca);
@@ -303,7 +327,7 @@ button {
     color: var(--perigo);
 }
 .motor-indicador.perigo svg {
-    filter: drop-shadow(0 0 6px rgba(255, 69, 58, 0.7));
+    filter: drop-shadow(0 0 6px rgba(251, 73, 52, 0.7));
 }
 .dot {
     width: 8px;
@@ -313,15 +337,15 @@ button {
 }
 .dot.sucesso {
     background: var(--sucesso);
-    box-shadow: 0 0 8px rgba(48, 209, 88, 0.7);
+    box-shadow: 0 0 8px rgba(184, 187, 38, 0.7);
 }
 .dot.violeta {
     background: var(--violeta);
-    box-shadow: 0 0 8px rgba(191, 90, 242, 0.7);
+    box-shadow: 0 0 8px rgba(211, 134, 155, 0.7);
 }
 .dot.marca {
     background: var(--marca);
-    box-shadow: 0 0 8px rgba(242, 107, 51, 0.7);
+    box-shadow: 0 0 8px rgba(254, 128, 25, 0.7);
 }
 .dot.neutro {
     background: var(--texto-3);
@@ -336,7 +360,7 @@ button {
     font-weight: 600;
     font-size: 15px;
     color: #fff;
-    background: linear-gradient(135deg, #6446ff, #f032b4 60%, #ff7828);
+    background: linear-gradient(135deg, #83a598, #d3869b 60%, #fe8019);
     border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
@@ -367,7 +391,7 @@ button {
     transition: background var(--duracao-rapida) var(--ease-out);
 }
 .btn-nova:hover {
-    background: rgba(242, 107, 51, 0.22);
+    background: rgba(254, 128, 25, 0.22);
 }
 .btn-nova svg {
     width: 14px;
@@ -846,8 +870,8 @@ button {
 .trilho .preenchimento {
     height: 100%;
     border-radius: 999px;
-    background: linear-gradient(90deg, var(--marca), #ff8c32);
-    box-shadow: 0 0 10px rgba(242, 107, 51, 0.5);
+    background: linear-gradient(90deg, var(--marca), #fabd2f);
+    box-shadow: 0 0 10px rgba(254, 128, 25, 0.5);
     transition: width 400ms var(--ease-out);
 }
 .barra-contexto .pct {
@@ -921,14 +945,14 @@ button {
     background: conic-gradient(
         from var(--beam-angulo, 0deg),
         rgba(255, 255, 255, 0.9) 0deg,
-        #ff3264 60deg,
-        #288cff 100deg,
-        #32c850 140deg,
-        #1eb9aa 180deg,
-        #6446ff 220deg,
-        #ff7828 260deg,
-        #f032b4 300deg,
-        #b428f0 340deg,
+        #fb4934 60deg,
+        #83a598 100deg,
+        #b8bb26 140deg,
+        #8ec07c 180deg,
+        #83a598 220deg,
+        #fe8019 260deg,
+        #d3869b 300deg,
+        #d3869b 340deg,
         rgba(255, 255, 255, 0.9) 360deg
     );
     filter: hue-rotate(var(--beam-hue, 0deg));
@@ -945,15 +969,15 @@ button {
 .beam-wrap::before {
     background: conic-gradient(
         from var(--beam-angulo, 0deg),
-        #ff3264 0deg,
-        #288cff 60deg,
-        #32c850 100deg,
-        #1eb9aa 140deg,
-        #6446ff 180deg,
-        #ff7828 220deg,
-        #f032b4 260deg,
-        #b428f0 300deg,
-        #ff3264 360deg
+        #fb4934 0deg,
+        #83a598 60deg,
+        #b8bb26 100deg,
+        #8ec07c 140deg,
+        #83a598 180deg,
+        #fe8019 220deg,
+        #d3869b 260deg,
+        #d3869b 300deg,
+        #fb4934 360deg
     );
     filter: brightness(1.3) saturate(1.2) hue-rotate(var(--beam-hue, 0deg));
     -webkit-mask:
@@ -1005,15 +1029,15 @@ button {
 .beam-bloom {
     background: conic-gradient(
         from var(--beam-angulo, 0deg),
-        rgba(255, 50, 100, 0.6) 0deg,
-        rgba(40, 140, 255, 0.6) 60deg,
-        rgba(50, 200, 80, 0.6) 100deg,
-        rgba(30, 185, 170, 0.6) 140deg,
-        rgba(100, 70, 255, 0.6) 180deg,
-        rgba(255, 120, 40, 0.6) 220deg,
-        rgba(240, 50, 180, 0.6) 260deg,
-        rgba(180, 40, 240, 0.6) 300deg,
-        rgba(255, 50, 100, 0.6) 360deg
+        rgba(251, 73, 52, 0.6) 0deg,
+        rgba(131, 165, 152, 0.6) 60deg,
+        rgba(184, 187, 38, 0.6) 100deg,
+        rgba(142, 192, 124, 0.6) 140deg,
+        rgba(131, 165, 152, 0.6) 180deg,
+        rgba(254, 128, 25, 0.6) 220deg,
+        rgba(211, 134, 155, 0.6) 260deg,
+        rgba(211, 134, 155, 0.6) 300deg,
+        rgba(251, 73, 52, 0.6) 360deg
     );
     filter: blur(10px) brightness(1.3) saturate(1.2)
         hue-rotate(var(--beam-hue, 0deg));
@@ -1076,7 +1100,7 @@ button {
     height: 56px;
     padding: 0 8px 0 22px;
     border-radius: 999px;
-    background: rgba(16, 16, 20, 0.85);
+    background: rgba(29, 32, 33, 0.85);
     border: 1px solid var(--borda-vidro);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
@@ -1089,7 +1113,7 @@ button {
 }
 .composer.focado {
     border-color: var(--marca);
-    box-shadow: 0 0 0 3px rgba(242, 107, 51, 0.18);
+    box-shadow: 0 0 0 3px rgba(254, 128, 25, 0.18);
 }
 .composer input {
     flex: 1;
@@ -1145,7 +1169,7 @@ button {
     position: absolute;
     inset: -4px;
     border-radius: 50%;
-    border: 2px solid rgba(255, 69, 58, 0.6);
+    border: 2px solid rgba(251, 73, 52, 0.6);
     animation: voz-pulsa 1.1s ease-in-out infinite;
     pointer-events: none;
 }
@@ -1169,7 +1193,7 @@ button {
     place-items: center;
     background: var(--marca);
     color: #fff;
-    box-shadow: 0 4px 14px rgba(242, 107, 51, 0.45);
+    box-shadow: 0 4px 14px rgba(254, 128, 25, 0.45);
     transition:
         transform var(--duracao-rapida) var(--ease-out),
         box-shadow var(--duracao-rapida) var(--ease-out),
@@ -1177,7 +1201,7 @@ button {
 }
 .btn-enviar:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(242, 107, 51, 0.55);
+    box-shadow: 0 6px 18px rgba(254, 128, 25, 0.55);
 }
 .btn-enviar svg {
     width: 17px;
@@ -1312,7 +1336,7 @@ button {
     transition: background var(--duracao-rapida) var(--ease-out);
 }
 .btn-revisar:hover {
-    background: rgba(242, 107, 51, 0.22);
+    background: rgba(254, 128, 25, 0.22);
 }
 
 /* ------------------------------------------------------------
@@ -1467,7 +1491,7 @@ button {
 }
 .campo-texto:focus {
     border-color: var(--marca);
-    box-shadow: 0 0 0 3px rgba(242, 107, 51, 0.18);
+    box-shadow: 0 0 0 3px rgba(254, 128, 25, 0.18);
 }
 
 .politica-leitura {
@@ -1575,8 +1599,8 @@ button {
     display: grid;
     place-items: center;
     color: var(--info);
-    background: rgba(100, 210, 255, 0.12);
-    border: 1px solid rgba(100, 210, 255, 0.3);
+    background: rgba(131, 165, 152, 0.12);
+    border: 1px solid rgba(131, 165, 152, 0.3);
 }
 
 .monitor-icone svg {
@@ -1598,7 +1622,7 @@ button {
 
 .pill-status.pill-sucesso {
     background: var(--sucesso-soft);
-    border-color: rgba(48, 209, 88, 0.35);
+    border-color: rgba(184, 187, 38, 0.35);
     color: var(--sucesso);
 }
 
@@ -1771,7 +1795,7 @@ button {
 .clip-celula.ativo {
     border-color: transparent;
     overflow: visible;
-    box-shadow: 0 0 14px rgba(255, 90, 120, 0.08);
+    box-shadow: 0 0 14px rgba(251, 73, 52, 0.08);
 }
 
 .clip-celula.ativo .clip-thumb {
@@ -1791,14 +1815,14 @@ button {
     background: conic-gradient(
         from var(--beam-angulo, 0deg),
         rgba(255, 255, 255, 0.9) 0deg,
-        #ff3264 60deg,
-        #288cff 100deg,
-        #32c850 140deg,
-        #1eb9aa 180deg,
-        #6446ff 220deg,
-        #ff7828 260deg,
-        #f032b4 300deg,
-        #b428f0 340deg,
+        #fb4934 60deg,
+        #83a598 100deg,
+        #b8bb26 140deg,
+        #8ec07c 180deg,
+        #83a598 220deg,
+        #fe8019 260deg,
+        #d3869b 300deg,
+        #d3869b 340deg,
         rgba(255, 255, 255, 0.9) 360deg
     );
     filter: hue-rotate(var(--beam-hue, 0deg));
@@ -1819,15 +1843,15 @@ button {
     opacity: 0.14;
     background: conic-gradient(
         from var(--beam-angulo, 0deg),
-        #ff3264 0deg,
-        #288cff 60deg,
-        #32c850 100deg,
-        #1eb9aa 140deg,
-        #6446ff 180deg,
-        #ff7828 220deg,
-        #f032b4 260deg,
-        #b428f0 300deg,
-        #ff3264 360deg
+        #fb4934 0deg,
+        #83a598 60deg,
+        #b8bb26 100deg,
+        #8ec07c 140deg,
+        #83a598 180deg,
+        #fe8019 220deg,
+        #d3869b 260deg,
+        #d3869b 300deg,
+        #fb4934 360deg
     );
     filter: brightness(1.3) saturate(1.2) hue-rotate(var(--beam-hue, 0deg));
     -webkit-mask:
@@ -1908,7 +1932,7 @@ button {
     font-size: 12px;
     font-weight: 500;
     color: var(--texto);
-    background: rgba(10, 10, 13, 0.55);
+    background: rgba(29, 32, 33, 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     overflow: hidden;
@@ -1939,7 +1963,7 @@ button {
     font-size: 11px;
     font-variant-numeric: tabular-nums;
     color: var(--texto);
-    background: rgba(10, 10, 13, 0.55);
+    background: rgba(29, 32, 33, 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
 }
@@ -2014,8 +2038,8 @@ button {
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     background: linear-gradient(
         to top,
-        rgba(10, 10, 13, 0.96),
-        rgba(10, 10, 13, 0.82)
+        rgba(29, 32, 33, 0.96),
+        rgba(29, 32, 33, 0.82)
     );
     backdrop-filter: blur(18px) saturate(1.3);
     -webkit-backdrop-filter: blur(18px) saturate(1.3);
@@ -2135,10 +2159,17 @@ button {
 }
 
 .grafico {
+    --acento: var(--marca);
     display: grid;
     gap: 14px;
     padding: 16px;
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+    background:
+        radial-gradient(
+            120% 90% at 0% 0%,
+            color-mix(in srgb, var(--acento) 38%, transparent),
+            transparent 65%
+        ),
+        var(--vidro);
 }
 
 .grafico-topo,
@@ -2168,7 +2199,7 @@ button {
 }
 
 .grafico-atual {
-    color: var(--texto);
+    color: var(--acento);
     font-size: 14px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
@@ -2225,6 +2256,7 @@ button {
 .grafico-area svg {
     position: absolute;
     inset: 0;
+    filter: saturate(1.9);
     display: block;
     width: 100%;
     height: 100%;
@@ -2232,13 +2264,14 @@ button {
 }
 
 .grafico-preenchimento {
-    fill: rgba(242, 107, 51, 0.18);
+    fill: color-mix(in srgb, var(--acento) 42%, transparent);
 }
 
 .grafico-linha {
     fill: none;
-    stroke: #f26b33;
-    stroke-width: 1.75;
+    stroke: var(--acento);
+    filter: drop-shadow(0 0 4px color-mix(in srgb, var(--acento) 85%, transparent));
+    stroke-width: 2.25;
     stroke-linecap: round;
     stroke-linejoin: round;
     vector-effect: non-scaling-stroke;
@@ -2339,7 +2372,7 @@ button {
 .status-badge.sucesso {
     color: var(--sucesso);
     background: var(--sucesso-soft);
-    border: 1px solid rgba(48, 209, 88, 0.35);
+    border: 1px solid rgba(184, 187, 38, 0.35);
 }
 .status-badge.alerta {
     color: var(--marca);
@@ -2436,8 +2469,8 @@ button {
     border-radius: inherit;
     background: linear-gradient(
         90deg,
-        rgba(242, 107, 51, 0.7),
-        rgba(191, 90, 242, 0.7)
+        var(--acento, var(--marca)),
+        var(--gb-amarelo)
     );
 }
 
@@ -2536,6 +2569,485 @@ button {
 
 .border-beam--alerta::before {
     animation-duration: 2s;
+}
+
+/* Mobile: Bubble Gruvbox Menubar (dark), de silasmariusz/Bubble_Theme_2026.
+   Sobrepõe só os tokens; o resto segue o padrão desktop. */
+@media (max-width: 900px) {
+    :root {
+        --fundo: #1b1107;
+        --vidro: rgba(36, 36, 44, 0.55);
+        --vidro-forte: rgba(36, 36, 44, 0.78);
+        --borda-vidro: rgba(235, 219, 178, 0.14);
+        --texto: #ebdbb2;
+        --texto-2: #e4d5ad;
+        --texto-3: #a89984;
+        --marca: #fe943f;
+        --sucesso: #a6e3a1;
+        --alerta: #f9e2af;
+        --perigo: #f38ba8;
+        --info: #89b4fa;
+        --raio-card: 28px;
+        --topbar-h: 78px;
+        --marca-soft: rgba(254, 148, 63, 0.15);
+        --marca-border: rgba(254, 148, 63, 0.35);
+        --perigo-soft: rgba(243, 139, 168, 0.15);
+        --perigo-border: rgba(243, 139, 168, 0.35);
+        --sucesso-soft: rgba(166, 227, 161, 0.15);
+    }
+}
+
+/* Cor por seção, modo e backend: cada item leva um acento da paleta.
+   O ativo pinta com o acento; o resto segue a marca. */
+.nav-pill[data-secao="monitor"] { --acento: var(--gb-verde); }
+.nav-pill[data-secao="assistente"] { --acento: var(--marca); }
+.nav-pill[data-secao="status"] { --acento: var(--gb-azul); }
+.nav-pill[data-secao="ajustes"] { --acento: var(--gb-roxo); }
+.nav-pill.ativa {
+    color: var(--acento);
+    background: color-mix(in srgb, var(--acento) 15%, transparent);
+    border: 1px solid color-mix(in srgb, var(--acento) 40%, transparent);
+}
+.seg[data-modo="performance"] { --acento: var(--gb-azul); }
+.seg[data-backend="spike"] { --acento: var(--gb-verde); }
+.seg-ativo {
+    color: var(--acento, var(--marca));
+    background: color-mix(in srgb, var(--acento, var(--marca)) 15%, transparent);
+    border-color: color-mix(in srgb, var(--acento, var(--marca)) 40%, transparent);
+}
+.politica-leitura .dot {
+    background: var(--gb-aqua);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--gb-aqua) 70%, transparent);
+}
+
+/* Cada tela leva o acento da sua seção; os cards de vidro herdam e pintam. */
+#view-monitor { --acento: var(--gb-verde); }
+#view-assistente { --acento: var(--marca); }
+#view-status { --acento: var(--gb-azul); }
+#view-ajustes { --acento: var(--gb-roxo); }
+
+/* Mobile: Composição vira um deck de teclas, uma por cena (coluna do
+   Arena). Só indicadores, sem interação: o contrato v1 é leitura. */
+.cenas-card {
+    position: relative;
+    padding: 20px;
+}
+/* Brilho de base do deck, como o LED embaixo das teclas */
+.cenas-card::after {
+    content: "";
+    position: absolute;
+    left: 24px;
+    right: 24px;
+    bottom: -1px;
+    height: 3px;
+    border-radius: 3px;
+    background: linear-gradient(
+        90deg,
+        var(--gb-azul),
+        var(--gb-roxo),
+        var(--gb-vermelho),
+        var(--gb-laranja),
+        var(--gb-amarelo),
+        var(--gb-verde),
+        var(--gb-aqua)
+    );
+    filter: blur(1px);
+    opacity: 0.85;
+    pointer-events: none;
+}
+.cenas-grade {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+.cena-tecla {
+    --cena: var(--marca);
+    position: relative;
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 6px 9px;
+    border-radius: 22px;
+    color: var(--texto);
+    overflow: hidden;
+    isolation: isolate;
+    background:
+        linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--cena) 14%, transparent),
+            transparent 60%
+        ),
+        rgba(18, 18, 26, 0.6);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 0 16px color-mix(in srgb, var(--cena) 28%, transparent),
+        0 8px 18px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+/* Aro neon: da cor da tecla para o ciano, como no bento de vidro */
+.cena-tecla::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    background: linear-gradient(
+        135deg,
+        var(--cena),
+        color-mix(in srgb, var(--gb-aqua) 90%, var(--cena))
+    );
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: 0.9;
+    pointer-events: none;
+}
+/* Reflexo diagonal no vidro, atrás do conteúdo */
+.cena-tecla::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: linear-gradient(
+        112deg,
+        transparent 50%,
+        rgba(255, 255, 255, 0.09) 50%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    pointer-events: none;
+}
+.cena-icone {
+    color: var(--cena);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--cena) 70%, transparent));
+}
+.cena-numero {
+    position: absolute;
+    top: 8px;
+    left: 11px;
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
+.cena-no-ar {
+    position: absolute;
+    top: 7px;
+    right: 8px;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.4);
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+.cena-icone svg {
+    display: block;
+    width: 28px;
+    height: 28px;
+}
+.cena-nome {
+    max-width: 100%;
+    padding: 0 4px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+.cena-tecla.tocando {
+    background:
+        linear-gradient(
+            135deg,
+            color-mix(in srgb, var(--cena) 42%, transparent),
+            color-mix(in srgb, var(--cena) 10%, transparent)
+        ),
+        rgba(18, 18, 26, 0.6);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 0 26px color-mix(in srgb, var(--cena) 60%, transparent),
+        0 8px 18px rgba(0, 0, 0, 0.4);
+}
+.cena-tecla.tocando::before {
+    opacity: 1;
+    padding: 2.5px;
+}
+.cena-tecla.vazia {
+    color: var(--texto-3);
+    background: rgba(255, 255, 255, 0.03);
+    box-shadow: none;
+}
+.cena-tecla.vazia::before {
+    opacity: 0.25;
+}
+.cena-tecla.vazia .cena-icone {
+    color: var(--texto-3);
+    filter: none;
+}
+
+/* Deck de atalhos: as mesmas teclas, agora em <button> */
+button.cena-tecla {
+    width: 100%;
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+button.cena-tecla:active {
+    transform: scale(0.96);
+}
+.cena-tecla.atalho.aviso {
+    opacity: 0.75;
+    box-shadow: none;
+}
+.cena-tecla.atalho.aviso::before {
+    opacity: 0.45;
+}
+.cena-tecla.atalho-novo {
+    --cena: var(--texto-2);
+    color: var(--texto-2);
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    border: 1.5px dashed var(--borda-vidro);
+}
+.cena-tecla.atalho-novo::before,
+.cena-tecla.atalho-novo::after {
+    display: none;
+}
+.cena-tecla.atalho-novo .cena-icone {
+    filter: none;
+}
+.atalho-editar {
+    cursor: pointer;
+    color: var(--texto);
+}
+/* Deck solto: as teclas ficam direto no fundo, sem card por trás */
+.atalhos-barra {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 14px;
+}
+.atalhos-aviso {
+    margin: 16px 2px 0;
+    color: var(--texto-2);
+    font-size: 13px;
+    line-height: 1.4;
+}
+.atalho-form {
+    display: grid;
+    gap: 14px;
+    margin-top: 16px;
+    padding: 20px;
+}
+.atalho-form h3 {
+    margin: 0;
+    font-size: 15px;
+}
+.atalho-campo {
+    display: grid;
+    gap: 6px;
+    color: var(--texto-2);
+    font-size: 13px;
+}
+.atalho-campo input {
+    padding: 11px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--borda-vidro);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--texto);
+    font: inherit;
+    font-size: 16px;
+}
+.atalho-cores {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.atalho-cor input {
+    position: absolute;
+    opacity: 0;
+}
+.atalho-cor span {
+    display: block;
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    background: var(--cena);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+.atalho-cor input:checked + span {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+.atalho-form-acoes {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+/* Bento: cada tecla escolhe o tamanho (p 1x1, m 2x1, g 2x2) e o grid de
+   3 colunas se encaixa sozinho. O span fica no <li>; o botão preenche. */
+.cenas-grade.bento {
+    grid-auto-rows: minmax(88px, auto);
+    grid-auto-flow: dense;
+}
+.cenas-grade.bento > li {
+    display: flex;
+}
+.cenas-grade.bento > li > .cena-tecla {
+    flex: 1;
+    aspect-ratio: auto;
+}
+.cenas-grade.bento > .tam-m {
+    grid-column: span 2;
+}
+.cenas-grade.bento > .tam-g {
+    grid-column: span 2;
+    grid-row: span 2;
+}
+.tam-m .cena-icone svg {
+    width: 34px;
+    height: 34px;
+}
+.tam-m .cena-nome {
+    font-size: 14px;
+}
+.tam-g .cena-icone svg {
+    width: 52px;
+    height: 52px;
+}
+.tam-g .cena-nome {
+    font-size: 17px;
+}
+/* Modo de edição: alça para arrastar e botão de tamanho em cada tecla */
+.cenas-grade.bento > li {
+    position: relative;
+}
+.atalho-alca,
+.atalho-ciclo {
+    position: absolute;
+    top: 6px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border: 0;
+    border-radius: 10px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+}
+.atalho-alca {
+    left: 6px;
+    cursor: grab;
+    touch-action: none;
+}
+.atalho-ciclo {
+    right: 6px;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.cenas-grade.editando .cena-no-ar {
+    display: none;
+}
+/* Na tecla pequena os controles ocupam o espaço do ícone: some só na edição */
+.cenas-grade.editando > .tam-p .cena-icone {
+    visibility: hidden;
+}
+.cenas-grade.editando > li > .cena-tecla {
+    outline: 1.5px dashed color-mix(in srgb, var(--cena) 60%, transparent);
+    outline-offset: -4px;
+}
+.cenas-grade.bento > li.arrastando-atalho {
+    z-index: 10;
+    pointer-events: none;
+}
+.arrastando-atalho .cena-tecla {
+    box-shadow: 0 18px 32px rgba(0, 0, 0, 0.55);
+}
+.atalho-tamanhos {
+    display: flex;
+    gap: 8px;
+}
+.atalho-tam {
+    flex: 1;
+}
+.atalho-tam input {
+    position: absolute;
+    opacity: 0;
+}
+.atalho-tam span {
+    display: block;
+    padding: 9px 6px;
+    border-radius: 12px;
+    border: 1px solid var(--borda-vidro);
+    text-align: center;
+    font-size: 13px;
+    color: var(--texto-2);
+}
+.atalho-tam input:checked + span {
+    color: var(--texto);
+    border-color: var(--marca-border);
+    background: var(--marca-soft);
+}
+
+/* Barra inferior do celular com 4 itens: ícone sobre o nome, como tab bar. */
+.nav-mobile {
+    gap: 6px;
+    padding-inline: 12px;
+}
+.nav-mobile .nav-pill {
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    min-height: 54px;
+    padding: 7px 4px;
+    font-size: 11px;
+    border-radius: 18px;
+}
+.nav-mobile .nav-pill svg {
+    width: 18px;
+    height: 18px;
+}
+
+.atalho-botao {
+    padding: 10px 18px;
+    border-radius: 999px;
+    border: 1px solid var(--borda-vidro);
+    background: var(--vidro);
+    color: var(--texto);
+    cursor: pointer;
+}
+.atalho-botao.principal {
+    color: var(--marca);
+    background: var(--marca-soft);
+    border-color: var(--marca-border);
+}
+.atalho-botao.perigo {
+    margin-left: auto;
+    color: var(--perigo);
+    background: var(--perigo-soft);
+    border-color: var(--perigo-border);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -11,6 +11,7 @@ import {
   rotuloTrabalho,
   rotuloProcessando,
   secaoAtiva,
+  atalhos,
   horaAgora,
   adicionarMensagem,
   atualizarMensagem,
@@ -26,6 +27,7 @@ import { iniciarOrbs } from '../imports/ui/orb';
 import { aplicarMetalNoTexto } from '../imports/ui/logoMetal';
 import { markdownParaHtml } from '../imports/ui/markdown';
 import { formatarTempo } from '../imports/ui/grade';
+import { aplicarOrdem, proximoTamanho, resolverAtalho, sanitizarAtalho } from '../imports/ui/atalhos';
 import { desenharQr, gerarMatrizQr, urlRemota } from '../imports/ui/remoto';
 import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
@@ -66,6 +68,7 @@ import {
 const ROTULOS_SECAO = {
   quickplay: 'Quick Play',
   monitor: 'Composição',
+  atalhos: 'Atalhos',
   assistente: 'Assistente',
   status: 'Status',
   ajustes: 'Ajustes',
@@ -117,6 +120,7 @@ function atualizarVisao() {
   const secao = secaoAtiva.get();
   el('view-assistente').hidden = secao !== 'assistente';
   el('view-monitor').hidden = secao !== 'monitor';
+  el('view-atalhos').hidden = secao !== 'atalhos';
   el('view-ajustes').hidden = secao !== 'ajustes';
   el('view-status').hidden = secao !== 'status';
   el('view-em-breve').hidden = secao !== 'quickplay';
@@ -125,7 +129,9 @@ function atualizarVisao() {
   }
   el('app-body').classList.toggle('app-body-simples', secao !== 'assistente');
 
-  if (secao === 'monitor') iniciarMonitor();
+  // O deck de atalhos lê as colunas do mesmo poll da Composição.
+  if (secao === 'monitor' || secao === 'atalhos') iniciarMonitor();
+  if (secao === 'atalhos') renderAtalhosDeck();
   if (secao === 'status') iniciarStatus();
   if (secao === 'ajustes') renderAjustes();
 }
@@ -458,6 +464,62 @@ function barraTimeGrid(camada, celula) {
   return `<div class="clip-progresso" data-endereco="${escaparHtml(celula.id)}" style="--progresso: ${valor}"></div>`;
 }
 
+const consultaMobile = typeof window !== 'undefined' && window.matchMedia
+  ? window.matchMedia('(max-width: 900px)')
+  : null;
+
+// No celular a Composição é leitura pura e mostra só as cenas (colunas do
+// Arena, sem os clipes): quem opera o evento fica no desktop.
+function ehMobile() {
+  return Boolean(consultaMobile && consultaMobile.matches);
+}
+
+// Cada cena leva uma cor da paleta, em ciclo, no estilo de um deck de
+// teclas. São só indicadores: sem clique, porque o contrato v1 é leitura.
+const CORES_CENA = [
+  'var(--gb-azul)',
+  'var(--gb-roxo)',
+  'var(--gb-verde)',
+  'var(--gb-laranja)',
+  'var(--gb-vermelho)',
+  'var(--gb-aqua)',
+  'var(--gb-amarelo)',
+];
+
+const ICONE_CENA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"></rect></svg>';
+
+function estadoCena(coluna) {
+  if (coluna.preenchidos === 0) return 'vazia';
+  if (coluna.tocando > 0) return `${coluna.tocando} de ${coluna.preenchidos} tocando`;
+  return coluna.preenchidos === 1 ? '1 clip' : `${coluna.preenchidos} clips`;
+}
+
+function cenasCardHtml(grade, status) {
+  const colunas = grade.colunas || [];
+  const noAr = colunas.filter((coluna) => coluna.tocando > 0).length;
+  const teclas = colunas.map((coluna, i) => {
+    const classes = ['cena-tecla'];
+    if (coluna.tocando > 0) classes.push('tocando');
+    if (coluna.preenchidos === 0) classes.push('vazia');
+    const cor = CORES_CENA[i % CORES_CENA.length];
+    const rotulo = escaparHtml(coluna.rotulo);
+    const noArTag = coluna.tocando > 0
+      ? `<span class="cena-no-ar">${coluna.tocando}/${coluna.preenchidos}</span>`
+      : '';
+    return `<li class="${classes.join(' ')}" style="--cena: ${cor}" aria-label="${rotulo}: ${escaparHtml(estadoCena(coluna))}"><span class="cena-numero">${coluna.numero}</span>${noArTag}<span class="cena-icone">${ICONE_CENA}</span><span class="cena-nome">${rotulo}</span></li>`;
+  }).join('');
+  return `<section class="cenas-card vidro${status === 'pollando' ? ' border-beam' : ''}">
+      <div class="card-titulo-linha">
+        <h2>Cenas</h2>
+        <div class="grade-pills">
+          <span class="pill-status">${colunas.length} cenas</span>
+          <span class="pill-status">${noAr} no ar</span>
+        </div>
+      </div>
+      <ul class="cenas-grade">${teclas}</ul>
+    </section>`;
+}
+
 function renderMonitor() {
   const grade = gradeMonitor.get();
   const erro = erroMonitor.get();
@@ -474,8 +536,9 @@ function renderMonitor() {
     return;
   }
 
+  const mobile = ehMobile();
   const totalClips = grade.camadas.reduce((total, camada) => total + camada.celulas.filter((celula) => celula.preenchido).length, 0);
-  const linhas = grade.camadas.map((camada) => {
+  const linhas = mobile ? '' : grade.camadas.map((camada) => {
     const celulas = camada.celulas.map((celula) => {
       const classes = ['clip-celula'];
       if (celula.ativo) classes.push('ativo');
@@ -506,14 +569,7 @@ function renderMonitor() {
     return `<div class="camada"><div class="camada-rotulo">${escaparHtml(camada.rotulo)}</div><div class="${linha}" style="--zoom: ${zoomGrade.get()}">${celulas}</div></div>`;
   }).join('');
 
-  el('monitor-conteudo').innerHTML = `
-    <div class="monitor-live">
-      ${grade.ativo ? `<span class="clip-ativo-nome">${escaparHtml(grade.ativo.nome)}</span><span class="clip-ativo-endereco">tocando em ${escaparHtml(grade.ativo.endereco)}</span>` : '<span class="clip-ativo-nome neutro">nenhum clip tocando</span>'}
-      <span class="ultimo-poll">último poll ${horaFormatada(ultimoPollMonitor.get())}</span>
-    </div>
-    ${backend === 'mock' ? '<p class="nota-mock">Mock local: grade de exemplo, sem Arena de verdade — por isso não há thumbnails. Com o daemon de pé, a grade e as thumbs vêm do proxy read-only <code>/api/v1/arena/**</code>.</p>' : ''}
-    ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Monitor falhou:</strong> ${escaparHtml(erro)}</div>` : ''}
-    <section class="grade-card vidro${status === 'pollando' ? ' border-beam' : ''}">
+  const cartao = mobile ? cenasCardHtml(grade, status) : `<section class="grade-card vidro${status === 'pollando' ? ' border-beam' : ''}">
       <div class="card-titulo-linha">
         <h2>Grade de clips</h2>
         <div class="grade-pills">
@@ -523,13 +579,266 @@ function renderMonitor() {
       </div>
   ${linhas}
   <div class="grade-rodape">Lupa: segure e arraste na grade — pra direita amplia, pra esquerda reduz. Duplo clique volta ao 100%.</div>
-    </section>
+    </section>`;
+
+  el('monitor-conteudo').innerHTML = `
+    <div class="monitor-live">
+      ${grade.ativo ? `<span class="clip-ativo-nome">${escaparHtml(grade.ativo.nome)}</span><span class="clip-ativo-endereco">tocando em ${escaparHtml(grade.ativo.endereco)}</span>` : '<span class="clip-ativo-nome neutro">nenhum clip tocando</span>'}
+      <span class="ultimo-poll">último poll ${horaFormatada(ultimoPollMonitor.get())}</span>
+    </div>
+    ${backend === 'mock' ? '<p class="nota-mock">Mock local: grade de exemplo, sem Arena de verdade — por isso não há thumbnails. Com o daemon de pé, a grade e as thumbs vêm do proxy read-only <code>/api/v1/arena/**</code>.</p>' : ''}
+    ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Monitor falhou:</strong> ${escaparHtml(erro)}</div>` : ''}
+    ${cartao}
   `;
   if (arrastandoZoom) {
     const cartao = document.querySelector('.grade-card');
     if (cartao) cartao.classList.add('arrastando');
   }
   iniciarOrbs();
+}
+
+// ------------------------------------------------------------
+// Atalhos — teclas ligadas às colunas do Resolume pelo nome
+// ------------------------------------------------------------
+
+const COR_ATALHO = {
+  azul: 'var(--gb-azul)',
+  roxo: 'var(--gb-roxo)',
+  verde: 'var(--gb-verde)',
+  laranja: 'var(--gb-laranja)',
+  vermelho: 'var(--gb-vermelho)',
+  aqua: 'var(--gb-aqua)',
+  amarelo: 'var(--gb-amarelo)',
+};
+
+const ICONE_MAIS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>';
+
+const ICONE_ALCA = '<svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor" aria-hidden="true"><circle cx="5" cy="3.5" r="1.3"></circle><circle cx="11" cy="3.5" r="1.3"></circle><circle cx="5" cy="8" r="1.3"></circle><circle cx="11" cy="8" r="1.3"></circle><circle cx="5" cy="12.5" r="1.3"></circle><circle cx="11" cy="12.5" r="1.3"></circle></svg>';
+const SIGLA_TAMANHO = { p: 'P', m: 'M', g: 'G' };
+const NOME_TAMANHO = { p: 'pequeno', m: 'largo', g: 'grande' };
+
+let modoEdicaoAtalhos = false;
+let avisoAtalho = '';
+let arrasto = null;
+
+function numerosPorExtenso(numeros) {
+  if (numeros.length < 2) return String(numeros[0] ?? '');
+  return `${numeros.slice(0, -1).join(', ')} e ${numeros.at(-1)}`;
+}
+
+// Disparar ainda não existe no contrato v1 (somente leitura); o que a tecla
+// consegue dizer hoje é se o nome achou uma coluna só, várias ou nenhuma.
+function avisoDoAtalho(atalho, vinculo) {
+  if (vinculo.estado === 'ambiguo') {
+    return `Mais de uma coluna se chama “${atalho.rotulo}” (colunas ${numerosPorExtenso(vinculo.numeros)}). Renomeie uma delas no Resolume.`;
+  }
+  if (vinculo.estado === 'sem-coluna') {
+    return `Nenhuma coluna se chama “${atalho.rotulo}” no Resolume. Confira o nome.`;
+  }
+  return 'Disparar pelo celular ainda não está disponível: o contrato com o motor é só leitura (v1).';
+}
+
+function colunasAtuais() {
+  return gradeMonitor.get()?.colunas ?? [];
+}
+
+// Reflow animado (FLIP): guarda onde cada tecla estava, redesenha e anima
+// da posição antiga para a nova. Respeita prefers-reduced-motion.
+function coletarRects(ul) {
+  const mapa = new Map();
+  ul.querySelectorAll('li[data-ordem]').forEach((li) => mapa.set(li.dataset.ordem, li.getBoundingClientRect()));
+  return mapa;
+}
+
+function animarReflow(ul, antes, ignorar = null) {
+  if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return;
+  ul.querySelectorAll('li[data-ordem]').forEach((li) => {
+    const anterior = antes.get(li.dataset.ordem);
+    if (!anterior || li === ignorar) return;
+    const atual = li.getBoundingClientRect();
+    const dx = anterior.left - atual.left;
+    const dy = anterior.top - atual.top;
+    if (!dx && !dy) return;
+    li.animate(
+      [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+      { duration: 220, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' },
+    );
+  });
+}
+
+function renderAtalhosDeck() {
+  const deck = el('atalhos-deck');
+  // Um poll da composição no meio do arrasto não pode recriar a tecla segurada.
+  if (!deck || arrasto) return;
+  const gradeAntes = deck.querySelector('.cenas-grade');
+  const antes = gradeAntes ? coletarRects(gradeAntes) : null;
+  const colunas = colunasAtuais();
+  const teclas = atalhos.get().map((atalho) => {
+    const vinculo = resolverAtalho(atalho, colunas);
+    const classes = ['cena-tecla', 'atalho'];
+    if (vinculo.estado === 'ok' && vinculo.tocando > 0) classes.push('tocando');
+    if (vinculo.estado !== 'ok') classes.push('aviso');
+    const selo = vinculo.estado === 'ambiguo'
+      ? '<span class="cena-no-ar" title="Nome repetido">?</span>'
+      : vinculo.estado === 'sem-coluna'
+        ? '<span class="cena-no-ar" title="Nenhuma coluna com esse nome">!</span>'
+        : vinculo.tocando > 0 ? '<span class="cena-no-ar">no ar</span>' : '';
+    const rotulo = escaparHtml(atalho.rotulo);
+    const acao = modoEdicaoAtalhos ? 'editar' : 'apertar';
+    const id = escaparHtml(atalho.id);
+    const controles = modoEdicaoAtalhos
+      ? `<button type="button" class="atalho-alca" aria-label="Arrastar ${rotulo}">${ICONE_ALCA}</button><button type="button" class="atalho-ciclo" data-atalho-acao="tamanho" data-atalho-id="${id}" aria-label="Tamanho de ${rotulo}: ${NOME_TAMANHO[atalho.tamanho]}">${SIGLA_TAMANHO[atalho.tamanho]}</button>`
+      : '';
+    return `<li class="tam-${atalho.tamanho}" data-ordem="${id}"><button type="button" class="${classes.join(' ')}" style="--cena: ${COR_ATALHO[atalho.cor]}" data-atalho-id="${id}" data-atalho-acao="${acao}" aria-label="${rotulo}">${selo}<span class="cena-icone">${ICONE_CENA}</span><span class="cena-nome">${rotulo}</span></button>${controles}</li>`;
+  }).join('');
+  const novo = `<li><button type="button" class="cena-tecla atalho-novo" data-atalho-acao="novo" aria-label="Novo atalho"><span class="cena-icone">${ICONE_MAIS}</span><span class="cena-nome">Novo</span></button></li>`;
+  deck.innerHTML = `
+    <section class="atalhos-solto">
+      <div class="atalhos-barra">
+        <button type="button" class="pill-status atalho-editar" data-atalho-acao="alternar-edicao">${modoEdicaoAtalhos ? 'Concluir' : 'Editar'}</button>
+      </div>
+      <ul class="cenas-grade bento${modoEdicaoAtalhos ? ' editando' : ''}">${teclas}${novo}</ul>
+      ${avisoAtalho ? `<p class="atalhos-aviso" role="status">${escaparHtml(avisoAtalho)}</p>` : ''}
+    </section>`;
+  const gradeDepois = deck.querySelector('.cenas-grade');
+  if (antes && gradeDepois) animarReflow(gradeDepois, antes);
+}
+
+function abrirFormAtalho(id) {
+  const atual = id ? atalhos.get().find((atalho) => atalho.id === id) : null;
+  const nomes = new Set(
+    colunasAtuais()
+      .map((coluna) => coluna.rotulo)
+      .filter((nome) => !/^(column|coluna) \d+$/i.test(nome)),
+  );
+  const sugestoes = [...nomes].map((nome) => `<option value="${escaparHtml(nome)}"></option>`).join('');
+  const cores = Object.keys(COR_ATALHO).map((cor, i) => `<label class="atalho-cor" style="--cena: ${COR_ATALHO[cor]}"><input type="radio" name="cor" value="${cor}"${(atual ? atual.cor === cor : i === 0) ? ' checked' : ''}><span></span></label>`).join('');
+  const tamanhos = [['p', 'Pequeno'], ['m', 'Largo'], ['g', 'Grande']].map(([valor, rotulo]) => `<label class="atalho-tam"><input type="radio" name="tamanho" value="${valor}"${(atual ? atual.tamanho === valor : valor === 'p') ? ' checked' : ''}><span>${rotulo}</span></label>`).join('');
+  el('atalhos-form-area').innerHTML = `
+    <form id="atalho-form" class="atalho-form vidro" data-atalho-id="${escaparHtml(atual?.id ?? '')}" autocomplete="off">
+      <h3>${atual ? 'Editar atalho' : 'Novo atalho'}</h3>
+      <label class="atalho-campo">Nome da coluna no Resolume
+        <input name="rotulo" maxlength="24" required list="atalho-sugestoes" value="${escaparHtml(atual?.rotulo ?? '')}" placeholder="Ex.: Introdução">
+      </label>
+      <datalist id="atalho-sugestoes">${sugestoes}</datalist>
+      <div class="atalho-cores" role="radiogroup" aria-label="Cor">${cores}</div>
+      <div class="atalho-tamanhos" role="radiogroup" aria-label="Tamanho">${tamanhos}</div>
+      <div class="atalho-form-acoes">
+        <button type="submit" class="atalho-botao principal">Salvar</button>
+        <button type="button" class="atalho-botao" data-atalho-acao="cancelar">Cancelar</button>
+        ${atual ? `<button type="button" class="atalho-botao perigo" data-atalho-acao="excluir" data-atalho-id="${escaparHtml(atual.id)}">Excluir</button>` : ''}
+      </div>
+    </form>`;
+  el('atalho-form').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  el('atalho-form').elements.rotulo.focus({ preventScroll: true });
+}
+
+function fecharFormAtalho() {
+  el('atalhos-form-area').innerHTML = '';
+}
+
+function aoClicarAtalhos(evento) {
+  const alvo = evento.target.closest('[data-atalho-acao]');
+  if (!alvo) return;
+  const acao = alvo.dataset.atalhoAcao;
+  const id = alvo.dataset.atalhoId;
+  if (acao === 'alternar-edicao') {
+    modoEdicaoAtalhos = !modoEdicaoAtalhos;
+    avisoAtalho = '';
+    fecharFormAtalho();
+    renderAtalhosDeck();
+  } else if (acao === 'novo') {
+    abrirFormAtalho(null);
+  } else if (acao === 'editar') {
+    abrirFormAtalho(id);
+  } else if (acao === 'apertar') {
+    const atalho = atalhos.get().find((item) => item.id === id);
+    if (!atalho) return;
+    avisoAtalho = avisoDoAtalho(atalho, resolverAtalho(atalho, colunasAtuais()));
+    renderAtalhosDeck();
+  } else if (acao === 'tamanho') {
+    atalhos.set(atalhos.get().map((item) => (item.id === id ? { ...item, tamanho: proximoTamanho(item.tamanho) } : item)));
+  } else if (acao === 'cancelar') {
+    fecharFormAtalho();
+  } else if (acao === 'excluir') {
+    atalhos.set(atalhos.get().filter((item) => item.id !== id));
+    fecharFormAtalho();
+  }
+}
+
+// Arrastar para reordenar (só no modo de edição): a tecla segue o dedo, as
+// outras se acomodam na hora (o grid refaz o layout pela ordem do DOM) e a
+// ordem final só vai para o `atalhos` ao soltar.
+function posicionarArrasto() {
+  const { li, grabX, grabY, x, y } = arrasto;
+  li.style.transform = 'none';
+  const caixa = li.getBoundingClientRect();
+  li.style.transform = `translate(${x - grabX - caixa.left}px, ${y - grabY - caixa.top}px) scale(1.05)`;
+}
+
+function aoPressionarAlca(evento) {
+  const alca = evento.target.closest('.atalho-alca');
+  const li = alca?.closest('li[data-ordem]');
+  if (!li || arrasto) return;
+  evento.preventDefault();
+  const caixa = li.getBoundingClientRect();
+  arrasto = {
+    li,
+    ul: li.parentElement,
+    pointerId: evento.pointerId,
+    grabX: evento.clientX - caixa.left,
+    grabY: evento.clientY - caixa.top,
+    x: evento.clientX,
+    y: evento.clientY,
+  };
+  li.classList.add('arrastando-atalho');
+  try { alca.setPointerCapture(evento.pointerId); } catch { /* sem captura, o window ainda recebe */ }
+  posicionarArrasto();
+  window.addEventListener('pointermove', aoMoverArrasto);
+  window.addEventListener('pointerup', aoSoltarArrasto);
+  window.addEventListener('pointercancel', aoSoltarArrasto);
+}
+
+function aoMoverArrasto(evento) {
+  if (!arrasto || evento.pointerId !== arrasto.pointerId) return;
+  arrasto.x = evento.clientX;
+  arrasto.y = evento.clientY;
+  const { li, ul } = arrasto;
+  // A tecla segurada ignora o ponteiro (CSS), então o hit-test enxerga o que está embaixo.
+  const alvo = document.elementFromPoint(arrasto.x, arrasto.y)?.closest('li[data-ordem]');
+  if (alvo && alvo !== li && alvo.parentElement === ul) {
+    const antes = coletarRects(ul);
+    const liVemAntes = alvo.compareDocumentPosition(li) & Node.DOCUMENT_POSITION_PRECEDING;
+    ul.insertBefore(li, liVemAntes ? alvo.nextSibling : alvo);
+    animarReflow(ul, antes, li);
+  }
+  posicionarArrasto();
+}
+
+function aoSoltarArrasto(evento) {
+  if (!arrasto || evento.pointerId !== arrasto.pointerId) return;
+  window.removeEventListener('pointermove', aoMoverArrasto);
+  window.removeEventListener('pointerup', aoSoltarArrasto);
+  window.removeEventListener('pointercancel', aoSoltarArrasto);
+  const { li, ul } = arrasto;
+  const ids = [...ul.querySelectorAll('li[data-ordem]')].map((item) => item.dataset.ordem);
+  li.classList.remove('arrastando-atalho');
+  li.style.transform = '';
+  arrasto = null;
+  atalhos.set(aplicarOrdem(atalhos.get(), ids));
+}
+
+function aoEnviarAtalho(evento) {
+  const form = evento.target.closest('#atalho-form');
+  if (!form) return;
+  evento.preventDefault();
+  const dados = new FormData(form);
+  const idExistente = form.dataset.atalhoId || undefined;
+  const atalho = sanitizarAtalho({ id: idExistente, rotulo: dados.get('rotulo'), cor: dados.get('cor'), tamanho: dados.get('tamanho') });
+  if (!atalho) return;
+  const lista = atalhos.get();
+  atalhos.set(idExistente ? lista.map((item) => (item.id === atalho.id ? atalho : item)) : [...lista, atalho]);
+  fecharFormAtalho();
 }
 
 // A barra vive fora do re-render: position muda a cada tick e mexer no
@@ -819,6 +1128,9 @@ function configurarInstalacaoPwa() {
 }
 
 function registrarEventos() {
+  document.addEventListener('click', aoClicarAtalhos);
+  document.addEventListener('pointerdown', aoPressionarAlca);
+  document.addEventListener('submit', aoEnviarAtalho);
   document.addEventListener('click', (evento) => {
     const nav = evento.target.closest('[data-secao]');
     if (nav?.dataset.secao) {
@@ -904,7 +1216,7 @@ function registrarEventos() {
 
 // Deep link por hash (#status, #monitor, #ajustes) — útil pra abrir a aba
 // certa num link externo ou no QR do celular.
-const SECOES_VALIDAS = new Set(['monitor', 'assistente', 'status', 'ajustes']);
+const SECOES_VALIDAS = new Set(['monitor', 'atalhos', 'assistente', 'status', 'ajustes']);
 function aplicarHashInicial() {
   const hash = window.location.hash.replace('#', '');
   if (SECOES_VALIDAS.has(hash)) secaoAtiva.set(hash);
@@ -918,7 +1230,7 @@ function registrarAssinaturas() {
     }
     atualizarTopbar();
     atualizarVisao();
-    if (secaoAtiva.get() !== 'monitor') pararMonitor();
+    if (secaoAtiva.get() !== 'monitor' && secaoAtiva.get() !== 'atalhos') pararMonitor();
     if (secaoAtiva.get() !== 'status') pararStatus();
   });
   backendAtivo.assinar(atualizarTopbar);
@@ -945,6 +1257,9 @@ function registrarAssinaturas() {
   erroMonitor.assinar(renderMonitor);
   progressoGrade.assinar(atualizarBarrasTimeGrid);
   backendAtivo.assinar(renderMonitor);
+  if (consultaMobile) consultaMobile.addEventListener('change', renderMonitor);
+  atalhos.assinar(renderAtalhosDeck);
+  gradeMonitor.assinar(renderAtalhosDeck);
 
   estadoSistema.assinar(agendarRenderStatus);
   contratoSistema.assinar(agendarRenderStatus);

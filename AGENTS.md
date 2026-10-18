@@ -10,6 +10,14 @@ monorepo Xcode/SwiftPM, com seu próprio `AGENTS.md`). O contrato entre as duas
 partes é a **Resolux API v1**, documentada em `../engine/docs/API-CONTRATO.md`
 (essa doc pertence à engine; leia, não edite daqui).
 
+**Quem rege os contratos é o Spike, e somente ele** (backend; docs em
+`github.com/ResoluxToolkit/app/tree/main/docs`): ele decide e escreve o
+contrato, e este cliente não o edita. Mas o cliente **deve propor mudanças** e
+avisar quando algo entregue for atrapalhar daqui (formato ruim de consumir,
+campo que falta, bug que trava): abra uma `issue` no GitHub desse repositório,
+com a identidade do agente (ver Git abaixo). Não precisa antecipar quando as
+implementações chegam.
+
 ## Arquitetura em runtime
 
 ```
@@ -48,6 +56,11 @@ Navegador (bundle estático)
   é o daemon. `montarGrade` + `mesmaGrade` evitam re-render a cada tick (as
   thumbnails piscariam); o progresso da TimeGrid anda num `Sinal` separado
   (`progressoGrade`) pelo mesmo motivo.
+- Composição no mobile (`max-width: 900px`): leitura pura, só **cenas** (as
+  colunas do Arena, sem clipes). `montarGrade` devolve `colunas` com
+  `preenchidos`/`tocando` por coluna, derivados dos clips — o `connected` da
+  coluna no Arena só vira "Connected" com a coluna inteira disparada, então
+  não serve de estado. O re-render acompanha o `matchMedia` ao redimensionar.
 - Aba Status: segundo canal, fora do `/api/v1` — SSE em `/monitor`
   (`127.0.0.1:8091`, `imports/api/monitorSistema.js`), reexportado pela
   fachada. Não tem mock: sem motor a aba fica `offline`. Encerrar processo é
@@ -55,6 +68,12 @@ Navegador (bundle estático)
 - Em produção o bundle (`base: "./"`) é servido pelo próprio daemon, então
   HTTP, WS e SSE resolvem pelo mesmo origem; em dev o proxy do Vite faz esse
   papel para `/api/v1` e `/monitor`.
+- **Direção: WebSocket primeiro.** HTTP só serve a página; a comunicação do
+  cliente (principalmente no mobile) prioriza o WebSocket. Chat, conversa e
+  monitor da composição já são WS. Ainda em HTTP/SSE e a migrar: `/health`,
+  `/session`, `/tools`, `/conversa`, miniaturas e o SSE `/monitor` da aba
+  Status — cada um depende de mensagem nova no contrato da engine. Funcionalidade
+  nova que precise de canal com o motor (ex.: disparar coluna) nasce em WS.
 
 ## Estrutura de diretórios
 
@@ -76,6 +95,7 @@ Navegador (bundle estático)
 | `imports/ui/preloader.js`, `pwa.js`, `wco.js`, `logoMetal.js` | Abertura, instalação PWA/iOS, Window Controls Overlay e logo `metal-fx`. |
 | `imports/ui/orb.js` | Renderer vanilla dos ThinkingOrbs (`thinking-orbs/engine`) em `<canvas data-orb="estado">`; respeita `prefers-reduced-motion`. |
 | `imports/ui/grade.js` | Parser do `GET /composition` do Arena (leitura pura): endereço `camada.coluna`, slot, clipe ativo e regras de thumbnail. Espelha as regras da engine Swift. |
+| `imports/ui/atalhos.js` | Deck de atalhos (nome + cor + tamanho bento p/m/g). `resolverAtalho` acha a coluna do Arena pelo nome, sem acento e sem caixa: ok, ambíguo ou sem coluna. Vive em `localStorage` (`resolux-atalhos-v1`). O layout é a ordem da lista (grid de 3 colunas, `dense`, monta de cima para baixo); no modo de edição há botão de tamanho (p→m→g) e alça para arrastar, com reflow animado, e a ordem só é gravada ao soltar. |
 | `tests/*.test.js` | Testes Node nativos (grade, monitor do sistema, store/conversa, persistência, markdown, QR, preloader, URL do WS). |
 | `skills/`, `.agents/skills/` | Skills de agente (transições CSS, efeitos de UI). Ver abaixo. |
 | `dist/` | Saída do build estático. Gerada; não edite. |
@@ -128,12 +148,18 @@ Vite mantém `/api/v1` no mesmo origem durante o desenvolvimento.
 - **Honestidade de estado na cara da UI**: erros do motor aparecem na tela
   (banner na aba Ajustes, mensagem de erro na thread), não só no console.
   Sessão do mock é sempre rotulada como mock.
+- **Abstrair o protocolo (princípio do produto)**: o usuário pede um recurso
+  ou um resultado e o sistema roteia o sinal. Ele nunca precisa saber de MIDI,
+  DMX, OSC, REST, NDI ou WebSocket, nem mapear nada: "receber mídia e entregar
+  OSC" é trabalho do sistema. Telas, rótulos e erros falam a língua do
+  operador (cenas, atalhos, mídia, nomes que ele deu), nunca a do protocolo.
+  O deck de atalhos é o exemplo: a tecla vincula pelo nome da coluna.
 - **Nada de fingir capacidade**: o mock anuncia zero ferramentas em vez de
   inventar uma lista nem thumbnails; seção sem tela cai no `#view-em-breve`.
 - **Trabalho por tacada** (herdado do processo do projeto): um recurso por
   vez, menor escopo possível, sem refatoração lateral. As seções com tela
-  hoje são `monitor` (rótulo "Composição"), `assistente`, `status` e
-  `ajustes`.
+  hoje são `monitor` (rótulo "Composição"), `atalhos`, `assistente`,
+  `status` e `ajustes`.
 - Render: cada seção tem um `render*` em `client/main.js` que reescreve
   `innerHTML` a partir dos `Sinal`es (`registrarAssinaturas`); eventos são
   delegados em `registrarEventos`. Dado que muda a cada tick fica fora do

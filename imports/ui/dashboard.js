@@ -15,14 +15,14 @@ function pontoGrafico(pontos, indice) {
   return `${x.toFixed(1)},${y.toFixed(1)}`;
 }
 
-function graficoLinhaHtml({ titulo, descricao, valorAtual, pontos, ariaLabel }) {
+function graficoLinhaHtml({ titulo, descricao, valorAtual, pontos, ariaLabel, acento }) {
   const atual = pontos.at(-1);
   const valores = pontos.map((_, indice) => pontoGrafico(pontos, indice));
   const linha = valores.join(' ');
   const area = valores.length ? `0,40 ${linha} 100,40` : '';
 
   return `
-    <section class="grafico vidro" aria-label="${escaparHtml(ariaLabel)}">
+    <section class="grafico vidro" style="--acento: ${acento}" aria-label="${escaparHtml(ariaLabel)}">
       <header class="grafico-topo">
         <div>
           <h2>${escaparHtml(titulo)}</h2>
@@ -68,6 +68,7 @@ export function graficoCpuHtml(pontos, contrato = {}) {
     valorAtual: valor,
     pontos,
     ariaLabel: 'Uso de CPU por amostra',
+    acento: 'var(--gb-azul)',
   });
 }
 
@@ -84,6 +85,7 @@ export function graficoMemoriaHtml(pontos, contrato = {}) {
     valorAtual: valor,
     pontos,
     ariaLabel: 'Uso de RAM por amostra',
+    acento: 'var(--gb-roxo)',
   });
 }
 
@@ -99,6 +101,7 @@ export function graficoGpuHtml(pontos, contrato = {}) {
     valorAtual: valor,
     pontos,
     ariaLabel: 'Uso de GPU por amostra',
+    acento: 'var(--gb-aqua)',
   });
 }
 
