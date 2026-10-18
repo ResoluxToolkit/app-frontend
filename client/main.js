@@ -494,7 +494,7 @@ function estadoCena(coluna) {
   return coluna.preenchidos === 1 ? '1 clip' : `${coluna.preenchidos} clips`;
 }
 
-function cenasCardHtml(grade, status) {
+function cenasCardHtml(grade) {
   const colunas = grade.colunas || [];
   const noAr = colunas.filter((coluna) => coluna.tocando > 0).length;
   const teclas = colunas.map((coluna, i) => {
@@ -508,13 +508,10 @@ function cenasCardHtml(grade, status) {
       : '';
     return `<li class="${classes.join(' ')}" style="--cena: ${cor}" aria-label="${rotulo}: ${escaparHtml(estadoCena(coluna))}"><span class="cena-numero">${coluna.numero}</span>${noArTag}<span class="cena-icone">${ICONE_CENA}</span><span class="cena-nome">${rotulo}</span></li>`;
   }).join('');
-  return `<section class="cenas-card vidro${status === 'pollando' ? ' border-beam' : ''}">
-      <div class="card-titulo-linha">
-        <h2>Cenas</h2>
-        <div class="grade-pills">
-          <span class="pill-status">${colunas.length} cenas</span>
-          <span class="pill-status">${noAr} no ar</span>
-        </div>
+  return `<section class="cenas-solto">
+      <div class="atalhos-barra">
+        <span class="pill-status">${colunas.length} cenas</span>
+        <span class="pill-status">${noAr} no ar</span>
       </div>
       <ul class="cenas-grade">${teclas}</ul>
     </section>`;
@@ -569,7 +566,7 @@ function renderMonitor() {
     return `<div class="camada"><div class="camada-rotulo">${escaparHtml(camada.rotulo)}</div><div class="${linha}" style="--zoom: ${zoomGrade.get()}">${celulas}</div></div>`;
   }).join('');
 
-  const cartao = mobile ? cenasCardHtml(grade, status) : `<section class="grade-card vidro${status === 'pollando' ? ' border-beam' : ''}">
+  const cartao = mobile ? cenasCardHtml(grade) : `<section class="grade-card vidro${status === 'pollando' ? ' border-beam' : ''}">
       <div class="card-titulo-linha">
         <h2>Grade de clips</h2>
         <div class="grade-pills">
