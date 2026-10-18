@@ -2626,8 +2626,9 @@ button {
 #view-status { --acento: var(--gb-azul); }
 #view-ajustes { --acento: var(--gb-roxo); }
 
-/* Mobile: Composição vira um deck de teclas, uma por cena (coluna do
-   Arena). Só indicadores, sem interação: o contrato v1 é leitura. */
+/* Mobile: deck de Atalhos (Bento Grid), cada tecla ligada a uma coluna do
+   Arena pelo nome. As classes `cena-*`/`cenas-grade` são nome histórico:
+   não existe mais seção Cenas. */
 .cenas-grade {
     list-style: none;
     margin: 0;

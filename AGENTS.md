@@ -157,7 +157,7 @@ Vite mantém `/api/v1` no mesmo origem durante o desenvolvimento.
   ou um resultado e o sistema roteia o sinal. Ele nunca precisa saber de MIDI,
   DMX, OSC, REST, NDI ou WebSocket, nem mapear nada: "receber mídia e entregar
   OSC" é trabalho do sistema. Telas, rótulos e erros falam a língua do
-  operador (cenas, atalhos, mídia, nomes que ele deu), nunca a do protocolo.
+  operador (atalhos, mídia, nomes que ele deu), nunca a do protocolo.
   O deck de atalhos é o exemplo: a tecla vincula pelo nome da coluna.
 - **Nada de fingir capacidade**: o mock anuncia zero ferramentas em vez de
   inventar uma lista nem thumbnails; seção sem tela cai no `#view-em-breve`.
