@@ -11,10 +11,12 @@ partes é a **Resolux API v1**, documentada em `../engine/docs/API-CONTRATO.md`
 (essa doc pertence à engine; leia, não edite daqui).
 
 **Quem rege os contratos é o Spike, e somente ele** (backend; docs em
-`github.com/ResoluxToolkit/app/tree/main/docs`). Este cliente não define nem
-altera contrato de protocolo e não precisa antecipar quando as implementações
-chegam. Só se um bug do backend travar a continuidade daqui, abra uma `issue`
-no GitHub desse repositório (com a identidade do agente, ver Git abaixo).
+`github.com/ResoluxToolkit/app/tree/main/docs`): ele decide e escreve o
+contrato, e este cliente não o edita. Mas o cliente **deve propor mudanças** e
+avisar quando algo entregue for atrapalhar daqui (formato ruim de consumir,
+campo que falta, bug que trava): abra uma `issue` no GitHub desse repositório,
+com a identidade do agente (ver Git abaixo). Não precisa antecipar quando as
+implementações chegam.
 
 ## Arquitetura em runtime
 
