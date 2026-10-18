@@ -1,7 +1,9 @@
 import { Sinal } from './signal.js';
 import {
+  carregarAtalhos,
   carregarConversa,
   carregarContexto,
+  salvarAtalhos,
   salvarConversa,
   salvarContexto,
 } from './persistencia.js';
@@ -11,6 +13,10 @@ import {
 // ------------------------------------------------------------
 
 export const secaoAtiva = new Sinal('assistente');
+
+// Deck de atalhos: cada um é só nome + cor, e vive no aparelho.
+export const atalhos = new Sinal(carregarAtalhos());
+atalhos.assinar((valor) => salvarAtalhos(valor));
 
 // ------------------------------------------------------------
 // Estado global da tela Assistente (mock interativo)

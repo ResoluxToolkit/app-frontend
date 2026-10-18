@@ -97,6 +97,35 @@ describe('grade de clips', () => {
   });
 });
 
+describe('colunas', () => {
+  it('deriva as colunas dos clips quando o Arena não manda columns', () => {
+    const { colunas } = montarGrade(composicao);
+    assert.equal(colunas.length, 5);
+    assert.deepEqual(colunas.map((coluna) => coluna.rotulo), ['Coluna 1', 'Coluna 2', 'Coluna 3', 'Coluna 4', 'Coluna 5']);
+    assert.deepEqual(colunas[0], { numero: 1, rotulo: 'Coluna 1', preenchidos: 1, tocando: 1 });
+    assert.deepEqual(colunas[1], { numero: 2, rotulo: 'Coluna 2', preenchidos: 0, tocando: 0 });
+  });
+
+  it('usa o nome do Arena, preenchendo o # com o número', () => {
+    const comNomes = { ...composicao, columns: [{ name: { value: 'Column #' } }, { name: { value: 'Abertura' } }] };
+    const { colunas } = montarGrade(comNomes);
+    assert.deepEqual(colunas.slice(0, 3).map((coluna) => coluna.rotulo), ['Column 1', 'Abertura', 'Coluna 3']);
+  });
+
+  it('soma clips preenchidos e tocando por coluna entre as camadas', () => {
+    const duasCamadas = {
+      columns: [{ name: { value: 'Column #' } }],
+      layers: [
+        { name: { value: 'Layer #' }, active_clip: { id: 1 }, clips: [{ id: 1, name: { value: 'A' }, transport: { controls: {} } }] },
+        { name: { value: 'Layer #' }, active_clip: { id: 9 }, clips: [{ id: 2, name: { value: 'B' }, transport: { controls: {} } }] },
+      ],
+    };
+    const [coluna] = montarGrade(duasCamadas).colunas;
+    assert.equal(coluna.preenchidos, 2);
+    assert.equal(coluna.tocando, 1);
+  });
+});
+
 describe('TimeGrid', () => {
   const composicaoTimeGrid = {
     layers: [
@@ -213,6 +242,7 @@ describe('MockDaemon', () => {
     assert.equal(grade.camadas[0].timeGrid, true);
     assert.ok(grade.camadas.slice(1).every((camada) => camada.celulas.length === 9));
     assert.equal(grade.camadas[0].celulas.length, 4);
+    assert.equal(grade.colunas.length, 9);
     assert.equal(grade.camadas[0].totalTempo, 600);
     assert.equal(progressosTimeGrid(composicaoMock).length, 1);
     assert.equal(backend.urlThumbnail(1, 'x'), null);

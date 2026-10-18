@@ -145,6 +145,33 @@ export function mesmaGrade(anterior, proxima) {
   return JSON.stringify(anterior) === JSON.stringify(proxima);
 }
 
+// Coluna usa a mesma convenção de nome da camada: o `#` vira o número
+// ("Column #" -> "Column 3"); sem nome cai no rótulo interno.
+export function rotuloColuna(nome, numero) {
+  const texto = textoDe(nome).trim();
+  if (!texto) return `Coluna ${numero}`;
+  return texto.replace(/#/g, String(numero));
+}
+
+// O `connected` da coluna no Arena só vira "Connected" quando a coluna
+// inteira está disparada (medido: clips tocando em 2 camadas e a coluna
+// segue "Disconnected"). Por isso o estado sai dos clips: quantas camadas
+// têm clip preenchido naquela coluna e quantas estão tocando nela. Sem
+// `columns` no corpo (mock), a contagem de colunas vem do maior clips[].
+function montarColunas(composicao, camadas) {
+  const nomes = (composicao && composicao.columns) || [];
+  const total = Math.max(nomes.length, ...camadas.map((camada) => camada.celulas.length));
+  return Array.from({ length: total }, (_, j) => {
+    const celulas = camadas.map((camada) => camada.celulas[j]).filter(Boolean);
+    return {
+      numero: j + 1,
+      rotulo: rotuloColuna(nomes[j] && nomes[j].name, j + 1),
+      preenchidos: celulas.filter((celula) => celula.preenchido).length,
+      tocando: celulas.filter((celula) => celula.ativo).length,
+    };
+  });
+}
+
 // Converte o corpo de GET /composition em camadas de células.
 // `ativo` é o primeiro clip reproduzindo (active_clip da camada,
 // igual ao REST — pausado não existe na API dele, não inventamos).
@@ -190,6 +217,7 @@ export function montarGrade(composicao) {
   });
   // A UI do Arena lista a última camada no topo; endereços continuam
   // sendo o índice crescente do REST (`camada.coluna` 1-based).
+  const colunas = montarColunas(composicao, camadas);
   camadas.reverse();
-  return { camadas, ativo };
+  return { camadas, ativo, colunas };
 }
