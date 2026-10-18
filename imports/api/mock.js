@@ -8,33 +8,20 @@
 import { ErroApi } from './client.js';
 
 const ROTULOS_ACAO = [
-  [/c[aâ]mera/i, 'Verificando a câmera…', 'Ação na Câmera'],
-  [/monitor|arena/i, 'Analisando o monitor do Arena…', 'Ação no Monitor'],
-  [/atualiza/i, 'Buscando atualizações…', 'Busca de atualizações'],
-  [/quick\s*play/i, 'Preparando o Quick Play…', 'Ação no Quick Play'],
-  [/starter/i, 'Acionando o Starter…', 'Ação no Starter'],
+  [/clipe|camada|coluna|composi/i, 'Lendo a composição do Arena…', 'Leitura da composição'],
+  [/monitor|arena/i, 'Analisando o monitor do Arena…', 'Leitura do monitor'],
 ];
 
 const RESPOSTAS = [
   [
-    /c[aâ]mera/i,
-    'Câmera verificada: sinal ativo e estável no iPhone 15 Pro, 1080p a 60 fps. ' +
-      'Enquadramento bom — posso iniciar a captura quando quiser.',
+    /clipe|camada|coluna|composi/i,
+    'A composição tem 3 camadas e 8 colunas; 2 clipes estão tocando agora, ' +
+      'na camada 1 e na camada 3. (resposta do mock local)',
   ],
   [
     /monitor|arena/i,
-    'Monitor do Arena acompanhando: fonte ativa, sem quedas nas últimas 2 horas. ' +
-      'Próxima verificação automática em 15 minutos. Quer que eu deixe o resumo fixado aqui?',
-  ],
-  [
-    /atualiza/i,
-    'Você está na versão mais recente do Resolux. Há uma atualização menor do Starter ' +
-      'disponível — posso agendar para a próxima pausa.',
-  ],
-  [
-    /quick\s*play/i,
-    'Quick Play preparado: sessão pronta para iniciar com a câmera e o monitor atuais. ' +
-      'É só dizer "começar" quando quiser.',
+    'Monitor do Arena acompanhando: composição aberta e respondendo pelo REST. ' +
+      '(resposta do mock local)',
   ],
 ];
 
@@ -43,10 +30,10 @@ function respostaPara(texto) {
     if (re.test(texto)) return resp;
   }
   return (
-    'Entendido! Anotei: "' +
+    'Anotei: "' +
     texto +
-    '". Posso verificar a câmera, acompanhar o monitor do Arena ou preparar o Quick Play. ' +
-    'Por onde seguimos?'
+    '". Consigo ler a composição do Arena: camadas, colunas e clipes tocando. ' +
+    '(resposta do mock local)'
   );
 }
 

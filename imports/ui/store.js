@@ -2,10 +2,8 @@ import { Sinal } from './signal.js';
 import {
   carregarAtalhos,
   carregarConversa,
-  carregarContexto,
   salvarAtalhos,
   salvarConversa,
-  salvarContexto,
 } from './persistencia.js';
 
 // ------------------------------------------------------------
@@ -39,8 +37,6 @@ export const processando = new Sinal(false);
 export const ouvindo = new Sinal(false);
 export const focado = new Sinal(false);
 export const rascunho = new Sinal('');
-export const contextoPct = new Sinal(carregarContexto(9));
-contextoPct.assinar((valor) => salvarContexto(valor));
 
 // Estado do agente: breathing | listening | searching | composing | working
 export const estadoAgente = new Sinal('breathing');
@@ -83,7 +79,6 @@ export function atualizarMensagem(id, patch) {
 export function resetarConversa() {
   proximoId = 1;
   mensagens.set(conversaPadrao());
-  contextoPct.set(9);
   processando.set(false);
   ouvindo.set(false);
   estadoAgente.set('breathing');
@@ -185,8 +180,4 @@ export function incorporarTurnos(turnos) {
         : {}),
     });
   }
-}
-
-export function subirContexto(delta) {
-  contextoPct.set(Math.min(96, contextoPct.get() + delta));
 }

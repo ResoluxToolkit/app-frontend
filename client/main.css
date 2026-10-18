@@ -177,7 +177,7 @@ button {
 
 .app-body {
     display: grid;
-    grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--contexto-w);
+    grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
     min-height: 0;
 }
 
