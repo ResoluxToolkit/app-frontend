@@ -1363,6 +1363,13 @@ button {
     flex-direction: column;
     gap: 20px;
 }
+/* Os cards ficam dentro deste contêiner, não direto no .ajustes-col: sem isto
+   o gap acima só afastava o título do conteúdo e os cards ficavam colados. */
+#ajustes-conteudo {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
 
 .ajustes-header h1 {
     margin: 0;
