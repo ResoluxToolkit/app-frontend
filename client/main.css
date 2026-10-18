@@ -2015,9 +2015,6 @@ button {
     .topbar-logo {
         min-width: 0;
     }
-    .topbar-nav {
-        display: none;
-    }
     .topbar-direita {
         margin-left: auto;
     }
@@ -2025,6 +2022,28 @@ button {
     .composer-zona {
         padding: 8px 16px 10px;
         padding-bottom: 10px;
+    }
+}
+
+/* Aparelho mobile (classe posta no <head> pela detecção de plataforma):
+   o menu vai para a barra da base. Desktop estreito continua com o menu do
+   topo, que rola na horizontal se faltar espaço. */
+html.mobile .topbar-nav,
+html.mobile .sidebar,
+html.mobile .contexto {
+    display: none;
+}
+html.mobile .app-body {
+    grid-template-columns: minmax(0, 1fr);
+}
+@media (max-width: 900px) {
+    html:not(.mobile) .topbar-nav {
+        min-width: 0;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    html:not(.mobile) .topbar-nav .nav-pill {
+        flex: none;
     }
 }
 
@@ -2065,10 +2084,8 @@ button {
     border-color: var(--marca-border);
 }
 
-@media (max-width: 900px) {
-    .nav-mobile {
-        display: flex;
-    }
+html.mobile .nav-mobile {
+    display: flex;
 }
 
 /* ------------------------------------------------------------
@@ -2571,30 +2588,28 @@ button {
     animation-duration: 2s;
 }
 
-/* Mobile: Bubble Gruvbox Menubar (dark), de silasmariusz/Bubble_Theme_2026.
+/* Aparelho mobile: Bubble Gruvbox Menubar (dark), de silasmariusz/Bubble_Theme_2026.
    Sobrepõe só os tokens; o resto segue o padrão desktop. */
-@media (max-width: 900px) {
-    :root {
-        --fundo: #1b1107;
-        --vidro: rgba(36, 36, 44, 0.55);
-        --vidro-forte: rgba(36, 36, 44, 0.78);
-        --borda-vidro: rgba(235, 219, 178, 0.14);
-        --texto: #ebdbb2;
-        --texto-2: #e4d5ad;
-        --texto-3: #a89984;
-        --marca: #fe943f;
-        --sucesso: #a6e3a1;
-        --alerta: #f9e2af;
-        --perigo: #f38ba8;
-        --info: #89b4fa;
-        --raio-card: 28px;
-        --topbar-h: 78px;
-        --marca-soft: rgba(254, 148, 63, 0.15);
-        --marca-border: rgba(254, 148, 63, 0.35);
-        --perigo-soft: rgba(243, 139, 168, 0.15);
-        --perigo-border: rgba(243, 139, 168, 0.35);
-        --sucesso-soft: rgba(166, 227, 161, 0.15);
-    }
+html.mobile {
+    --fundo: #1b1107;
+    --vidro: rgba(36, 36, 44, 0.55);
+    --vidro-forte: rgba(36, 36, 44, 0.78);
+    --borda-vidro: rgba(235, 219, 178, 0.14);
+    --texto: #ebdbb2;
+    --texto-2: #e4d5ad;
+    --texto-3: #a89984;
+    --marca: #fe943f;
+    --sucesso: #a6e3a1;
+    --alerta: #f9e2af;
+    --perigo: #f38ba8;
+    --info: #89b4fa;
+    --raio-card: 28px;
+    --topbar-h: 78px;
+    --marca-soft: rgba(254, 148, 63, 0.15);
+    --marca-border: rgba(254, 148, 63, 0.35);
+    --perigo-soft: rgba(243, 139, 168, 0.15);
+    --perigo-border: rgba(243, 139, 168, 0.35);
+    --sucesso-soft: rgba(166, 227, 161, 0.15);
 }
 
 /* Cor por seção, modo e backend: cada item leva um acento da paleta.
