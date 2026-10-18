@@ -124,8 +124,8 @@ button {
     left: 12%;
     background: radial-gradient(
         circle,
-        rgba(254, 128, 25, 0.11),
-        rgba(254, 128, 25, 0.04) 55%,
+        color-mix(in srgb, var(--acento-secao) 11%, transparent),
+        color-mix(in srgb, var(--acento-secao) 4%, transparent) 55%,
         transparent 70%
     );
 }
@@ -235,8 +235,8 @@ button {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: var(--marca);
-    box-shadow: 0 0 12px rgba(254, 128, 25, 0.8);
+    background: var(--acento-secao);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--acento-secao) 80%, transparent);
 }
 /* Metal líquido (metal-fx) no "Toolkit": o span hospeda o canvas do
    shader e o rim; letter-spacing zerado para os glifos do canvas
@@ -2030,6 +2030,30 @@ button {
 
 /* Nav fixa do mobile: ocupa a faixa em branco da base e mantém
    apenas as duas seções úteis fora do desktop. */
+/* Cor da seção ativa. Registrada como <color> para a troca animar: o menu, o
+   ponto da logo, o brilho do fundo e os cards mudam juntos. A transição só é
+   ligada depois da primeira seção, para o app não abrir mudando de cor. */
+@property --acento-secao {
+    syntax: "<color>";
+    inherits: true;
+    initial-value: #ff9f0a;
+}
+:root {
+    --acento-secao: var(--marca);
+}
+:root[data-secao-ativa="atalhos"] { --acento-secao: var(--gb-verde); }
+:root[data-secao-ativa="monitor"] { --acento-secao: var(--gb-verde); }
+:root[data-secao-ativa="status"] { --acento-secao: var(--gb-azul); }
+:root[data-secao-ativa="ajustes"] { --acento-secao: var(--gb-roxo); }
+:root.tema-animavel {
+    transition: --acento-secao 450ms var(--ease-out);
+}
+@media (prefers-reduced-motion: reduce) {
+    :root.tema-animavel {
+        transition: none;
+    }
+}
+
 /* Barra do celular: cápsula flutuante de vidro com um indicador que desliza
    até o item ativo. O ativo ganha a cor da marca; os outros ficam claros. */
 .nav-mobile {
@@ -2065,7 +2089,8 @@ button {
     background: rgba(10, 8, 6, 0.72);
     box-shadow:
         inset 0 2px 7px rgba(0, 0, 0, 0.65),
-        0 0 0 1px rgba(255, 255, 255, 0.05);
+        inset 0 0 0 1px color-mix(in srgb, var(--acento-secao) 28%, transparent),
+        0 0 16px color-mix(in srgb, var(--acento-secao) 30%, transparent);
     transform: translateX(calc(var(--ativo) * 100%));
 }
 .nav-capsula.animavel .nav-indicador {
@@ -2101,7 +2126,7 @@ button {
 .nav-mobile .nav-pill.ativa {
     background: none;
     border: 0;
-    color: var(--marca);
+    color: var(--acento-secao);
 }
 .nav-mobile .nav-pill:active {
     transform: scale(0.96);
@@ -2668,10 +2693,9 @@ button {
 }
 
 /* Cada tela leva o acento da sua seção; os cards de vidro herdam e pintam. */
-#view-monitor { --acento: var(--gb-verde); }
-#view-assistente { --acento: var(--marca); }
-#view-status { --acento: var(--gb-azul); }
-#view-ajustes { --acento: var(--gb-roxo); }
+/* Os cards herdam a cor da seção ativa, que muda com transição (ver
+   --acento-secao mais abaixo). Gráficos e tiles que têm cor própria a mantêm. */
+body { --acento: var(--acento-secao); }
 
 /* Mobile: Composição vira um deck de teclas, uma por cena (coluna do
    Arena). Só indicadores, sem interação: o contrato v1 é leitura. */

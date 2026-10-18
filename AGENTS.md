@@ -69,6 +69,9 @@ Navegador (bundle estático)
   A barra inferior do celular é uma cápsula de vidro (`.nav-capsula`) com um
   indicador que desliza até o item ativo: `posicionarIndicadorMobile` grava o
   índice em `--ativo` e a transição é do CSS (ligada só depois da posição inicial).
+  Cada seção tem a sua cor (`:root[data-secao-ativa]` define `--acento-secao`,
+  registrada como `<color>` para animar): o item ativo do menu, o ponto da logo,
+  o brilho do fundo e os cards (`body { --acento }`) mudam juntos, com transição.
 - Aba Status: segundo canal, fora do `/api/v1` — SSE em `/monitor`
   (`127.0.0.1:8091`, `imports/api/monitorSistema.js`), reexportado pela
   fachada. Não tem mock: sem motor a aba fica `offline`. Encerrar processo é

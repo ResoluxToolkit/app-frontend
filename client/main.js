@@ -116,6 +116,19 @@ function atualizarTopbar() {
     botao.classList.toggle('ativa', botao.dataset.secao === secaoAtiva.get());
   });
   posicionarIndicadorMobile();
+  publicarSecaoAtiva();
+}
+
+// A cor da seção ativa vive no CSS (`:root[data-secao-ativa]`); aqui só se
+// publica qual é. A transição liga depois do primeiro valor (reflow forçado),
+// senão o app abriria animando a partir da cor padrão.
+function publicarSecaoAtiva() {
+  const raiz = document.documentElement;
+  raiz.dataset.secaoAtiva = secaoAtiva.get();
+  if (!raiz.classList.contains('tema-animavel')) {
+    void raiz.offsetWidth;
+    raiz.classList.add('tema-animavel');
+  }
 }
 
 // O indicador da barra do celular desliza até o item ativo. A transição só
