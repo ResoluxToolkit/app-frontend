@@ -26,7 +26,7 @@ import { aplicarMetalNoTexto } from '../imports/ui/logoMetal';
 import { markdownParaHtml } from '../imports/ui/markdown';
 import { formatarTempo } from '../imports/ui/grade';
 import { aplicarOrdem, proximoTamanho, resolverAtalho, sanitizarAtalho } from '../imports/ui/atalhos';
-import { desenharQr, gerarMatrizQr, urlRemota } from '../imports/ui/remoto';
+import { desenharQr, gerarMatrizQr, segundosRestantes, urlPareamento, urlRemota } from '../imports/ui/remoto';
 import { juntarDitado, reconhecedorDisponivel } from '../imports/ui/ditado';
 import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
@@ -56,6 +56,10 @@ import {
   assinarSistema,
   formatarBytes,
   formatarTaxa,
+  cabecalhosAcesso,
+  obterPareamento,
+  estadoPareamento,
+  concluirPareamentoDaUrl,
 } from '../imports/api';
 import {
   graficoCpuHtml,
@@ -136,27 +140,91 @@ function atualizarVisao() {
 }
 
 // ------------------------------------------------------------
-// Remote: QR com o endereço de rede para abrir o painel no celular
+// Remote: QR com o endereço de rede e um código que gira a cada 5 min.
+// Quem lê abre o painel com o código; o motor compara e só então
+// entrega o token do aparelho. Sem código válido, o celular não entra.
 // ------------------------------------------------------------
 
-function atualizarRemoto() {
-  const url = urlRemota();
+let pareamentoAtual = null; // { codigo, expiraEm, base? }
+let buscandoPareamento = false;
+
+function mmss(segundos) {
+  return `${Math.floor(segundos / 60)}:${String(segundos % 60).padStart(2, '0')}`;
+}
+
+function mensagemAparelho() {
+  const estado = estadoPareamento.get();
+  if (estado === 'pareado') return 'Este aparelho está pareado.';
+  if (estado === 'recusado') return 'Código vencido ou inválido. Leia o QR de novo no Mac.';
+  if (estado === 'pareando') return 'Pareando com o Mac…';
+  return '';
+}
+
+function renderRemoto(estadoTexto, url = '') {
   const estado = el('remoto-estado');
   const canvas = el('remoto-qr');
   const link = el('remoto-url');
   if (!estado || !canvas || !link) return;
-
-  if (!url) {
-    estado.textContent = 'Abra pelo endereço de rede para gerar o QR.';
-    canvas.hidden = true;
-    link.hidden = true;
-    return;
-  }
-
-  estado.textContent = 'Leia para abrir no celular';
+  estado.textContent = estadoTexto;
+  canvas.hidden = !url;
+  link.hidden = !url;
+  if (!url) return;
   link.href = url;
   link.textContent = url;
-  desenharQr(canvas, gerarMatrizQr(url));
+  // Fundo transparente e módulos no laranja da marca, como pedido.
+  const laranja = getComputedStyle(document.documentElement).getPropertyValue('--marca').trim() || '#ff9f0a';
+  desenharQr(canvas, gerarMatrizQr(url), { fundo: null, modulo: laranja });
+}
+
+async function atualizarRemoto() {
+  if (buscandoPareamento) return;
+  buscandoPareamento = true;
+  try {
+    pareamentoAtual = await obterPareamento();
+  } catch (e) {
+    pareamentoAtual = null;
+    const origem = urlRemota();
+    if (e.codigo === 'not_found' && origem) {
+      // Motor ainda sem a rota de pareamento: QR só com o endereço, e a
+      // tela diz que a porta está aberta, sem fingir proteção.
+      renderRemoto('Motor ainda não valida código: o QR abre sem pareamento.', origem);
+    } else {
+      // Celular (o motor só gera código para o próprio Mac) ou motor fora.
+      renderRemoto(mensagemAparelho() || 'O QR de pareamento aparece no painel do Mac.');
+    }
+    return;
+  } finally {
+    buscandoPareamento = false;
+  }
+  tickRemoto();
+}
+
+// A cada segundo: contagem regressiva; código vencido busca outro.
+function tickRemoto() {
+  if (!pareamentoAtual) return;
+  const restantes = segundosRestantes(pareamentoAtual.expiraEm);
+  if (restantes === 0) {
+    atualizarRemoto();
+    return;
+  }
+  const origem = pareamentoAtual.base || urlRemota();
+  if (!origem) {
+    renderRemoto('Abra pelo endereço de rede para gerar o QR.');
+    return;
+  }
+  const url = urlPareamento(origem, pareamentoAtual.codigo);
+  if (el('remoto-url')?.href !== url) {
+    renderRemoto(`Leia no celular · novo código em ${mmss(restantes)}`, url);
+  } else {
+    el('remoto-estado').textContent = `Leia no celular · novo código em ${mmss(restantes)}`;
+  }
+}
+
+function iniciarRemoto() {
+  backendAtivo.assinar((valor) => {
+    if (valor !== 'sondando') atualizarRemoto();
+  });
+  setInterval(tickRemoto, 1000);
 }
 
 // ------------------------------------------------------------
@@ -1004,7 +1072,10 @@ async function encerrarProcesso(pid) {
   renderStatus();
 
   try {
-    const resposta = await fetch(`/monitor/processes/${pid}/terminate`, { method: 'POST' });
+    const resposta = await fetch(`/monitor/processes/${pid}/terminate`, {
+      method: 'POST',
+      headers: cabecalhosAcesso(),
+    });
     if (!resposta.ok) throw new Error(`HTTP ${resposta.status}`);
     processosEncerrados.add(pid);
     erroProcessos = '';
@@ -1268,7 +1339,7 @@ function registrarAssinaturas() {
 registrarEventos();
 aplicarHashInicial();
 registrarAssinaturas();
-atualizarRemoto();
+iniciarRemoto();
 iniciarControlesJanela();
 atualizarTopbar();
 atualizarVisao();
@@ -1278,5 +1349,6 @@ atualizarComposer();
 iniciarOrbs();
 aplicarMetalNoTexto(el('logo-metal'));
 configurarInstalacaoPwa();
-sondarBackend();
+// Celular que chegou pelo QR devolve o código antes da sonda.
+concluirPareamentoDaUrl().finally(sondarBackend);
 iniciarPreloader();

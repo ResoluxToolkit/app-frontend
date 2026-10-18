@@ -1,16 +1,24 @@
 // ------------------------------------------------------------
 // Acesso remoto: gerador de QR Code do painel (modo byte, ECC nível
-// M, versões 1–4 — uma URL de LAN cabe de sobra) e a URL que o
-// celular consegue abrir. Porta fiel ao algoritmo de referência
-// (ISO 18004), sem dependências.
+// M, versões 1–6 — URL de LAN/Tailscale com o código de pareamento
+// cabe de sobra), a URL que o celular abre e o código rotativo que
+// ela carrega. Porta fiel ao algoritmo de referência (ISO 18004),
+// sem dependências.
 // ------------------------------------------------------------
 
+// Nível M por versão: `blocos` de `porBloco` codewords de dados, cada
+// um com `ecc` codewords de correção (tabela 9 da ISO 18004). Da v4 em
+// diante há mais de um bloco e os codewords saem intercalados.
 const FAIXA_M = [
-  { versao: 1, dados: 16, ecc: 10 },
-  { versao: 2, dados: 28, ecc: 16 },
-  { versao: 3, dados: 44, ecc: 26 },
-  { versao: 4, dados: 64, ecc: 36 },
-];
+  { versao: 1, blocos: 1, porBloco: 16, ecc: 10 },
+  { versao: 2, blocos: 1, porBloco: 28, ecc: 16 },
+  { versao: 3, blocos: 1, porBloco: 44, ecc: 26 },
+  { versao: 4, blocos: 2, porBloco: 32, ecc: 18 },
+  { versao: 5, blocos: 2, porBloco: 43, ecc: 24 },
+  { versao: 6, blocos: 4, porBloco: 27, ecc: 16 },
+].map((faixa) => ({ ...faixa, dados: faixa.blocos * faixa.porBloco }));
+
+const CAPACIDADE_MAXIMA = FAIXA_M.at(-1).dados - 2;
 
 const EXP = new Uint8Array(512);
 const LOG = new Uint8Array(256);
@@ -60,7 +68,7 @@ export function restoReedSolomon(dados, grau) {
 
 function escolherFaixa(quantidadeBytes) {
   const faixa = FAIXA_M.find((item) => item.dados - 2 >= quantidadeBytes);
-  if (!faixa) throw new Error('Texto maior que a capacidade do QR (62 bytes).');
+  if (!faixa) throw new Error(`Texto maior que a capacidade do QR (${CAPACIDADE_MAXIMA} bytes).`);
   return faixa;
 }
 
@@ -133,8 +141,9 @@ function desenharPadroesFuncao(matriz, funcao, versao) {
   desenharFinder(0, tamanho - 7);
   desenharFinder(tamanho - 7, 0);
   desenharBitsFormato(matriz, 0, funcao);
-  const ultimocentro = 4 * versao + 10;
-  const centros = [6, ultimocentro];
+  // A v1 não tem padrão de alinhamento; da v2 à v6 há um só, no canto
+  // oposto ao finder de cima à esquerda.
+  const centros = versao === 1 ? [] : [6, 4 * versao + 10];
   for (let i = 0; i < centros.length; i += 1) {
     for (let j = 0; j < centros.length; j += 1) {
       const canto = (i === 0 && j === 0) ||
@@ -226,14 +235,29 @@ function pontuacao(matriz) {
   return pontos;
 }
 
+// Divide os dados em blocos, calcula o ECC de cada um e intercala:
+// primeiro o 1º codeword de cada bloco, depois o 2º, e assim por diante.
+function intercalarBlocos(dadosCodewords, faixa) {
+  const blocos = [];
+  for (let i = 0; i < faixa.blocos; i += 1) {
+    const dados = dadosCodewords.slice(i * faixa.porBloco, (i + 1) * faixa.porBloco);
+    blocos.push({ dados, ecc: restoReedSolomon(dados, faixa.ecc) });
+  }
+  const saida = new Uint8Array(faixa.blocos * (faixa.porBloco + faixa.ecc));
+  let pos = 0;
+  for (let i = 0; i < faixa.porBloco; i += 1) {
+    for (const bloco of blocos) saida[pos++] = bloco.dados[i];
+  }
+  for (let i = 0; i < faixa.ecc; i += 1) {
+    for (const bloco of blocos) saida[pos++] = bloco.ecc[i];
+  }
+  return saida;
+}
+
 export function montarBaseQr(texto) {
   const bytes = new TextEncoder().encode(texto);
   const faixa = escolherFaixa(bytes.length);
-  const dadosCodewords = montarCodewordsDados(bytes, faixa.dados);
-  const ecc = restoReedSolomon(dadosCodewords, faixa.ecc);
-  const bits = new Uint8Array(faixa.dados + faixa.ecc);
-  bits.set(dadosCodewords);
-  bits.set(ecc, faixa.dados);
+  const bits = intercalarBlocos(montarCodewordsDados(bytes, faixa.dados), faixa);
 
   const tamanho = 17 + 4 * faixa.versao;
   const base = Array.from({ length: tamanho }, () => new Array(tamanho).fill(false));
@@ -294,7 +318,43 @@ export function urlRemota(loc = typeof window !== 'undefined' ? window.location 
   return loc.origin;
 }
 
-export function desenharQr(canvas, matriz) {
+// Parâmetro da URL do QR que leva o código de pareamento.
+export const PARAM_PAREAMENTO = 'p';
+
+// URL que vai no QR: a origem de rede com o código rotativo. Quem lê
+// abre o painel e devolve o código ao motor para ganhar acesso.
+export function urlPareamento(origem, codigo) {
+  if (!origem) return '';
+  if (!codigo) return origem;
+  return `${origem}/?${PARAM_PAREAMENTO}=${encodeURIComponent(codigo)}`;
+}
+
+// Código que veio na URL aberta pelo celular (ou vazio).
+export function lerCodigoPareamento(loc = typeof window !== 'undefined' ? window.location : undefined) {
+  if (!loc?.search) return '';
+  return new URLSearchParams(loc.search).get(PARAM_PAREAMENTO) || '';
+}
+
+// Tira o código da barra de endereço depois de usado: ele não serve
+// mais e não deve ficar em histórico, favorito ou print de tela.
+export function limparCodigoDaUrl(win = typeof window !== 'undefined' ? window : undefined) {
+  if (!win?.history?.replaceState || !win.location) return;
+  const url = new URL(win.location.href);
+  if (!url.searchParams.has(PARAM_PAREAMENTO)) return;
+  url.searchParams.delete(PARAM_PAREAMENTO);
+  win.history.replaceState(win.history.state, '', url.pathname + url.search + url.hash);
+}
+
+// Segundos até o código expirar, nunca negativo. `expiraEm` é epoch em
+// segundos, como tudo que o motor escreve.
+export function segundosRestantes(expiraEm, agoraMs = Date.now()) {
+  return Math.max(0, Math.ceil(expiraEm - agoraMs / 1000));
+}
+
+// Desenha o QR. Sem `fundo`, o canvas fica transparente e os módulos
+// saem na cor `modulo` sobre o fundo da página (QR invertido: leitores
+// de celular atuais leem, mas alguns antigos só leem escuro sobre claro).
+export function desenharQr(canvas, matriz, { fundo = '#ffffff', modulo = '#101014' } = {}) {
   if (!canvas) return;
   const zona = 4;
   const lado = matriz.length + zona * 2;
@@ -305,9 +365,12 @@ export function desenharQr(canvas, matriz) {
   const contexto = canvas.getContext('2d');
   const escala = Math.max(1, Math.floor(canvas.width / lado));
   const margem = Math.floor((canvas.width - escala * lado) / 2);
-  contexto.fillStyle = '#ffffff';
-  contexto.fillRect(0, 0, canvas.width, canvas.height);
-  contexto.fillStyle = '#101014';
+  contexto.clearRect(0, 0, canvas.width, canvas.height);
+  if (fundo) {
+    contexto.fillStyle = fundo;
+    contexto.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  contexto.fillStyle = modulo;
   for (let linha = 0; linha < matriz.length; linha += 1) {
     for (let coluna = 0; coluna < matriz[linha].length; coluna += 1) {
       if (matriz[linha][coluna]) {

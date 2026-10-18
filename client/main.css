@@ -497,7 +497,7 @@ button {
     height: 160px;
     justify-self: center;
     border-radius: 10px;
-    background: #fff;
+    background: transparent;
 }
 .remote-url {
     font-size: 12px;
