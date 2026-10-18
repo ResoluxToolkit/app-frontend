@@ -56,11 +56,16 @@ Navegador (bundle estático)
   é o daemon. `montarGrade` + `mesmaGrade` evitam re-render a cada tick (as
   thumbnails piscariam); o progresso da TimeGrid anda num `Sinal` separado
   (`progressoGrade`) pelo mesmo motivo.
-- Composição no mobile (`max-width: 900px`): leitura pura, só **cenas** (as
-  colunas do Arena, sem clipes). `montarGrade` devolve `colunas` com
+- Composição é do desktop e **Atalhos** é do mobile (`max-width: 900px`): seções
+  separadas (`monitor` e `atalhos`, cada uma só na sua plataforma) que leem a
+  mesma grade e a mesma assinatura (`SECOES_GRADE`); só a apresentação muda.
+  No mobile as colunas viram atalhos (o operador cria a tecla pelo nome da
+  coluna), sem a grade de clipes. `montarGrade` devolve `colunas` com
   `preenchidos`/`tocando` por coluna, derivados dos clips — o `connected` da
   coluna no Arena só vira "Connected" com a coluna inteira disparada, então
-  não serve de estado. O re-render acompanha o `matchMedia` ao redimensionar.
+  não serve de estado. Ao cruzar os 900px, e em links `#monitor`/`#atalhos`,
+  `secaoDaPlataforma` (`imports/ui/plataforma.js`) leva para a seção
+  equivalente da outra plataforma.
 - Aba Status: segundo canal, fora do `/api/v1` — SSE em `/monitor`
   (`127.0.0.1:8091`, `imports/api/monitorSistema.js`), reexportado pela
   fachada. Não tem mock: sem motor a aba fica `offline`. Encerrar processo é

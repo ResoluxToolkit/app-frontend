@@ -2628,33 +2628,6 @@ button {
 
 /* Mobile: Composição vira um deck de teclas, uma por cena (coluna do
    Arena). Só indicadores, sem interação: o contrato v1 é leitura. */
-.cenas-card {
-    position: relative;
-    padding: 20px;
-}
-/* Brilho de base do deck, como o LED embaixo das teclas */
-.cenas-card::after {
-    content: "";
-    position: absolute;
-    left: 24px;
-    right: 24px;
-    bottom: -1px;
-    height: 3px;
-    border-radius: 3px;
-    background: linear-gradient(
-        90deg,
-        var(--gb-azul),
-        var(--gb-roxo),
-        var(--gb-vermelho),
-        var(--gb-laranja),
-        var(--gb-amarelo),
-        var(--gb-verde),
-        var(--gb-aqua)
-    );
-    filter: blur(1px);
-    opacity: 0.85;
-    pointer-events: none;
-}
 .cenas-grade {
     list-style: none;
     margin: 0;
@@ -2731,15 +2704,6 @@ button {
 .cena-icone {
     color: var(--cena);
     filter: drop-shadow(0 0 6px color-mix(in srgb, var(--cena) 70%, transparent));
-}
-.cena-numero {
-    position: absolute;
-    top: 8px;
-    left: 11px;
-    font-size: 11px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    opacity: 0.85;
 }
 .cena-no-ar {
     position: absolute;
@@ -2841,6 +2805,7 @@ button.cena-tecla:active {
 .atalhos-barra {
     display: flex;
     justify-content: flex-end;
+    gap: 8px;
     margin-bottom: 14px;
 }
 .atalhos-aviso {
