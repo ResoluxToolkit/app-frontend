@@ -66,6 +66,9 @@ Navegador (bundle estático)
   não serve de estado. Ao cruzar os 900px, e em links `#monitor`/`#atalhos`,
   `secaoDaPlataforma` (`imports/ui/plataforma.js`) leva para a seção
   equivalente da outra plataforma.
+  A barra inferior do celular é uma cápsula de vidro (`.nav-capsula`) com um
+  indicador que desliza até o item ativo: `posicionarIndicadorMobile` grava o
+  índice em `--ativo` e a transição é do CSS (ligada só depois da posição inicial).
 - Aba Status: segundo canal, fora do `/api/v1` — SSE em `/monitor`
   (`127.0.0.1:8091`, `imports/api/monitorSistema.js`), reexportado pela
   fachada. Não tem mock: sem motor a aba fica `offline`. Encerrar processo é

@@ -115,6 +115,23 @@ function atualizarTopbar() {
   document.querySelectorAll('.nav-pill').forEach((botao) => {
     botao.classList.toggle('ativa', botao.dataset.secao === secaoAtiva.get());
   });
+  posicionarIndicadorMobile();
+}
+
+// O indicador da barra do celular desliza até o item ativo. A transição só
+// liga depois de fixar a posição inicial (o reflow forçado abaixo), para ele
+// não "viajar" a partir do zero quando o app abre.
+function posicionarIndicadorMobile() {
+  const capsula = document.querySelector('#nav-mobile .nav-capsula');
+  if (!capsula) return;
+  const botoes = [...capsula.querySelectorAll('.nav-pill')];
+  const indice = botoes.findIndex((botao) => botao.dataset.secao === secaoAtiva.get());
+  capsula.style.setProperty('--ativo', String(Math.max(indice, 0)));
+  capsula.classList.toggle('sem-ativo', indice < 0);
+  if (!capsula.classList.contains('animavel')) {
+    void capsula.offsetWidth;
+    capsula.classList.add('animavel');
+  }
 }
 
 function atualizarVisao() {
