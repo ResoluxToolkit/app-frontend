@@ -167,7 +167,6 @@
         <nav class="topbar-nav" aria-label="Seções">
           <button class="nav-pill" type="button" data-secao="monitor">Composição</button>
           <button class="nav-pill ativa" type="button" data-secao="assistente">Assistente</button>
-          <button class="nav-pill" type="button" data-secao="atalhos">Atalhos</button>
           <button class="nav-pill" type="button" data-secao="status">Status</button>
           <button class="nav-pill" type="button" data-secao="ajustes">Ajustes</button>
         </nav>
@@ -317,22 +316,12 @@
       </div>
 
       <nav id="nav-mobile" class="nav-mobile" aria-label="Seções no mobile">
-        <button class="nav-pill" type="button" data-secao="assistente">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 0 3.4 9.8l2.1.9-.8-2.2A5.5 5.5 0 0 0 8 2.5Z"/></svg>
-          Assistente
-        </button>
-        <button class="nav-pill" type="button" data-secao="atalhos">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"></rect><rect x="9" y="2" width="5" height="5" rx="1"></rect><rect x="2" y="9" width="5" height="5" rx="1"></rect><rect x="9" y="9" width="5" height="5" rx="1"></rect></svg>
-          Atalhos
-        </button>
-        <button class="nav-pill" type="button" data-secao="monitor">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v10M8 3v10M13 3v10"></path></svg>
-          Cenas
-        </button>
-        <button class="nav-pill" type="button" data-secao="status">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.5 5.5"/><path d="M8 5v3l2 2"/><path d="M2.5 2v3h3"/></svg>
-          Status
-        </button>
+        <div class="nav-capsula">
+          <span class="nav-indicador" aria-hidden="true"></span>
+          <button class="nav-pill" type="button" data-secao="assistente"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3C6.5 3 2 6.8 2 11.5c0 2.3 1.1 4.4 2.9 5.9-.2 1.4-.8 2.6-1.9 3.6-.3.3-.1.9.4 1 2.1-.1 3.9-.9 5.3-2 .8.2 1.5.3 2.3.3 5.5 0 10-3.8 10-8.8S17.5 3 12 3z"></path></svg><span>Assistente</span></button>
+          <button class="nav-pill" type="button" data-secao="atalhos"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2.2"></rect><rect x="13" y="3" width="8" height="8" rx="2.2"></rect><rect x="3" y="13" width="8" height="8" rx="2.2"></rect><rect x="13" y="13" width="8" height="8" rx="2.2"></rect></svg><span>Atalhos</span></button>
+          <button class="nav-pill" type="button" data-secao="status"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="12" width="4.4" height="8" rx="1.6"></rect><rect x="9.8" y="4" width="4.4" height="16" rx="1.6"></rect><rect x="15.6" y="9" width="4.4" height="11" rx="1.6"></rect></svg><span>Status</span></button>
+        </div>
       </nav>
     </div>
 
