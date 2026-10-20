@@ -1,8 +1,14 @@
 # Resolux — Frontend (cliente web)
 
 Cliente web do Resolux: Seu Resolume. Mais atento. App **estático** construído por **Vite**, com HTML/DOM vanilla e
-estado reativo mínimo (`Sinal`). UI dark no padrão "Liquid Glass", escrita em
+estado reativo mínimo (`Sinal`). UI dark no estilo **"solid glass"** (vidro
+com profundidade, mas denso e mais opaco, para o conteúdo ler fácil), escrita em
 português (identificadores e comentários do código são pt-BR — mantenha assim).
+A paleta segue o site resolux.app: fundo quase preto (`--fundo`) e laranja de
+marca (`--marca`), com os tokens em `:root` no `client/main.css`.
+
+O [README](README.md) é a porta de entrada para humanos e tem a seção
+"Para a engine", que lista o que este cliente consome e espera do motor.
 
 Este diretório (`app/frontend`) é um projeto autônomo. Ele é a metade web do
 sistema cuja outra metade é a engine Swift em `../engine` (ResoluxToolkit,
@@ -76,7 +82,7 @@ Navegador (bundle estático)
   indicador que desliza até o item ativo: `posicionarIndicadorMobile` grava o
   índice em `--ativo` e a transição é do CSS (ligada só depois da posição inicial).
 - Aba Status: segundo canal, fora do `/api/v1` — SSE em `/monitor`
-  (`127.0.0.1:8091`, `imports/api/monitorSistema.js`), reexportado pela
+  (no daemon, `127.0.0.1:1980/monitor`; `imports/api/monitorSistema.js`), reexportado pela
   fachada. Não tem mock: sem motor a aba fica `offline`. Encerrar processo é
   `POST /monitor/processes/{pid}/terminate`.
   A tela abre com um **veredito** (`avaliarSaude`): CPU/GPU contam pela média
@@ -101,7 +107,7 @@ Navegador (bundle estático)
 | --- | --- |
 | `index.html` | Shell estático do app: topbar, seções, composer e placeholders. |
 | `client/main.js` | Entry do cliente: eventos delegados, render por seção, fluxo do agente, boot. |
-| `client/main.css` | ~2500 linhas; design tokens em `:root` (cores `--marca`, `--sucesso`, `--vidro` etc.) e estilos. |
+| `client/main.css` | ~3100 linhas; design tokens em `:root` (cores `--marca`, `--sucesso`, `--vidro` etc.) e estilos. |
 | `imports/api/index.js` | Fachada de backend + estado da sessão do motor e do monitor da grade. |
 | `imports/api/client.js` | `ResoluxDaemon`: cliente HTTP/WebSocket da API v1. |
 | `imports/api/mock.js` | `MockDaemon`: mesma interface, respostas locais. |
@@ -118,8 +124,9 @@ Navegador (bundle estático)
 | `imports/ui/preloader.js`, `pwa.js`, `wco.js`, `logoMetal.js` | Abertura, instalação PWA/iOS, Window Controls Overlay e logo `metal-fx`. |
 | `imports/ui/orb.js` | Renderer vanilla dos ThinkingOrbs (`thinking-orbs/engine`) em `<canvas data-orb="estado">`; respeita `prefers-reduced-motion`. |
 | `imports/ui/grade.js` | Parser do `GET /composition` do Arena (leitura pura): endereço `camada.coluna`, slot, clipe ativo e regras de thumbnail. Espelha as regras da engine Swift. |
+| `imports/ui/plataforma.js` | `secaoDaPlataforma`: leva `#monitor`/`#atalhos` para a seção equivalente da plataforma atual (a detecção do aparelho fica no script `detectar-plataforma` do `index.html`). |
 | `imports/ui/atalhos.js` | Deck de atalhos (nome + cor + tamanho bento p/m/g). `resolverAtalho` acha a coluna do Arena pelo nome, sem acento e sem caixa: ok, ambíguo ou sem coluna. Vive em `localStorage` (`resolux-atalhos-v1`). O layout é a ordem da lista (grid de 3 colunas, `dense`, monta de cima para baixo); no modo de edição há botão de tamanho (p→m→g) e alça para arrastar, com reflow animado, e a ordem só é gravada ao soltar. |
-| `tests/*.test.js` | Testes Node nativos (grade, monitor do sistema, store/conversa, persistência, markdown, QR, preloader, URL do WS). |
+| `tests/*.test.js` | Testes Node nativos (grade, atalhos, plataforma e detecção do aparelho, monitor do sistema, saúde, widgets, store/conversa, persistência, markdown, ditado, QR, preloader, URL do WS). |
 | `skills/`, `.agents/skills/` | Skills de agente (transições CSS, efeitos de UI). Ver abaixo. |
 | `dist/` | Saída do build estático. Gerada; não edite. |
 
@@ -177,6 +184,10 @@ Vite mantém `/api/v1` no mesmo origem durante o desenvolvimento.
   OSC" é trabalho do sistema. Telas, rótulos e erros falam a língua do
   operador (atalhos, mídia, nomes que ele deu), nunca a do protocolo.
   O deck de atalhos é o exemplo: a tecla vincula pelo nome da coluna.
+- **Chat o mais automático possível**: o Assistente não é painel de botões.
+  Nada de elemento de mockup sem recurso real por trás (câmera e painel de
+  fontes saíram por isso). Só fica na tela o que vale construir depois, e
+  marcado como tal.
 - **Nada de fingir capacidade**: o mock anuncia zero ferramentas em vez de
   inventar uma lista nem thumbnails; seção sem tela cai no `#view-em-breve`.
 - **Trabalho por tacada** (herdado do processo do projeto): um recurso por
