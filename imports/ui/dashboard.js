@@ -1,4 +1,5 @@
-import { formatarBytes, formatarPct } from '../api/monitorSistema.js';
+import { formatarBytes, formatarPct, formatarTaxa } from '../api/monitorSistema.js';
+import { tileMetrica } from './widgets.js';
 
 function escaparHtml(valor) {
   return String(valor ?? '')
@@ -8,50 +9,6 @@ function escaparHtml(valor) {
     .replace(/"/g, '&quot;');
 }
 
-function pontoGrafico(pontos, indice) {
-  const altura = 40;
-  const x = pontos.length === 1 ? 100 : (indice / (pontos.length - 1)) * 100;
-  const y = altura - (Math.min(100, Math.max(0, pontos[indice].valor)) / 100) * altura;
-  return `${x.toFixed(1)},${y.toFixed(1)}`;
-}
-
-function graficoLinhaHtml({ titulo, descricao, valorAtual, pontos, ariaLabel, acento }) {
-  const atual = pontos.at(-1);
-  const valores = pontos.map((_, indice) => pontoGrafico(pontos, indice));
-  const linha = valores.join(' ');
-  const area = valores.length ? `0,40 ${linha} 100,40` : '';
-
-  return `
-    <section class="grafico vidro" style="--acento: ${acento}" aria-label="${escaparHtml(ariaLabel)}">
-      <header class="grafico-topo">
-        <div>
-          <h2>${escaparHtml(titulo)}</h2>
-          <p>${escaparHtml(descricao)}</p>
-        </div>
-        <span class="grafico-atual">${escaparHtml(valorAtual)}</span>
-      </header>
-      <div class="grafico-corpo">
-        <div class="grafico-eixo" aria-hidden="true">
-          <span>100%</span>
-          <span>50%</span>
-          <span>0%</span>
-        </div>
-        <div class="grafico-area">
-          <div class="grafico-grade" aria-hidden="true"></div>
-          <svg viewBox="0 0 100 40" preserveAspectRatio="none" role="img" aria-label="${escaparHtml(ariaLabel)}">
-            <polygon class="grafico-preenchimento" points="${area}"></polygon>
-            <polyline class="grafico-linha" points="${linha}"></polyline>
-          </svg>
-        </div>
-      </div>
-      <footer class="grafico-rotulos">
-        <span>${pontos.at(0)?.hora ?? 'aguardando'}</span>
-        <span>${atual ? `${pontos.length} amostras · ${atual.hora}` : 'sem amostra'}</span>
-      </footer>
-    </section>
-  `;
-}
-
 function porcentagemMemoria(memoria) {
   const total = Number(memoria?.totalBytes);
   const usada = Number(memoria?.usedBytes);
@@ -59,50 +16,61 @@ function porcentagemMemoria(memoria) {
   return Math.min(100, Math.max(0, (usada / total) * 100));
 }
 
-export function graficoCpuHtml(pontos, contrato = {}) {
-  const cpu = contrato.cpu;
-  const valor = cpu?.usagePercent != null ? formatarPct(cpu.usagePercent) : (pontos.at(-1)?.valor != null ? `${pontos.at(-1).valor.toFixed(1)}%` : '—');
-  return graficoLinhaHtml({
-    titulo: 'Uso de CPU',
-    descricao: cpu ? `user ${formatarPct(cpu.userPercent)} · sys ${formatarPct(cpu.systemPercent)}` : 'Histórico recente do feed SSE do motor.',
-    valorAtual: valor,
-    pontos,
-    ariaLabel: 'Uso de CPU por amostra',
-    acento: 'var(--gb-azul)',
-  });
-}
+// Tiles de métrica da aba Status: CPU, RAM e GPU com tendência e barra de uso,
+// e a vazão da rede quando o motor manda. Substituem os gráficos grandes.
+export function metricasSistemaHtml(contrato = {}, { cpu = [], memoria = [], gpu = [] } = {}) {
+  const ultimo = (serie) => serie.at(-1)?.valor;
+  const valores = (serie) => serie.map((amostra) => amostra.valor);
+  const pct = (preferido, serie) => {
+    if (preferido != null) return formatarPct(preferido);
+    return ultimo(serie) != null ? `${ultimo(serie).toFixed(1)}%` : '—';
+  };
 
-export function graficoMemoriaHtml(pontos, contrato = {}) {
-  const memoria = contrato.memory;
-  const percentual = porcentagemMemoria(memoria);
-  const valor = percentual != null ? formatarPct(percentual) : (pontos.at(-1)?.valor != null ? `${pontos.at(-1).valor.toFixed(1)}%` : '—');
-  const descricao = memoria
-    ? `${formatarBytes(memoria.usedBytes)} de ${formatarBytes(memoria.totalBytes)}`
-    : 'Histórico recente do feed SSE do motor.';
-  return graficoLinhaHtml({
-    titulo: 'Uso de RAM',
-    descricao,
-    valorAtual: valor,
-    pontos,
-    ariaLabel: 'Uso de RAM por amostra',
-    acento: 'var(--gb-roxo)',
-  });
-}
+  const cpuAtual = contrato.cpu;
+  const gpuAtual = contrato.gpu;
+  const percentualMemoria = porcentagemMemoria(contrato.memory);
+  const tiles = [
+    tileMetrica({
+      rotulo: 'CPU',
+      icone: 'cpu',
+      acento: 'var(--gb-azul)',
+      valor: pct(cpuAtual?.usagePercent, cpu),
+      detalhe: cpuAtual ? `user ${formatarPct(cpuAtual.userPercent)} · sys ${formatarPct(cpuAtual.systemPercent)}` : 'Últimas amostras',
+      serie: valores(cpu),
+      percentual: cpuAtual?.usagePercent ?? ultimo(cpu),
+    }),
+    tileMetrica({
+      rotulo: 'RAM',
+      icone: 'ram',
+      acento: 'var(--gb-roxo)',
+      valor: pct(percentualMemoria, memoria),
+      detalhe: contrato.memory ? `${formatarBytes(contrato.memory.usedBytes)} de ${formatarBytes(contrato.memory.totalBytes)}` : 'Últimas amostras',
+      serie: valores(memoria),
+      percentual: percentualMemoria ?? ultimo(memoria),
+    }),
+    tileMetrica({
+      rotulo: 'GPU',
+      icone: 'gpu',
+      acento: 'var(--gb-aqua)',
+      valor: pct(gpuAtual?.devicePercent, gpu),
+      detalhe: gpuAtual ? `renderer ${formatarPct(gpuAtual.rendererPercent)} · tiler ${formatarPct(gpuAtual.tilerPercent)}` : 'Últimas amostras',
+      serie: valores(gpu),
+      percentual: gpuAtual?.devicePercent ?? ultimo(gpu),
+    }),
+  ];
 
-export function graficoGpuHtml(pontos, contrato = {}) {
-  const gpu = contrato.gpu;
-  const valor = gpu?.devicePercent != null ? formatarPct(gpu.devicePercent) : (pontos.at(-1)?.valor != null ? `${pontos.at(-1).valor.toFixed(1)}%` : '—');
-  const descricao = gpu
-    ? `renderer ${formatarPct(gpu.rendererPercent)} · tiler ${formatarPct(gpu.tilerPercent)}`
-    : 'Histórico recente do feed SSE do motor.';
-  return graficoLinhaHtml({
-    titulo: 'Uso de GPU',
-    descricao,
-    valorAtual: valor,
-    pontos,
-    ariaLabel: 'Uso de GPU por amostra',
-    acento: 'var(--gb-aqua)',
-  });
+  const rede = contrato.networkTotals;
+  if (rede) {
+    tiles.push(tileMetrica({
+      rotulo: 'Rede',
+      icone: 'rede',
+      acento: 'var(--gb-verde)',
+      valor: formatarTaxa(rede.bytesInPerSecond + rede.bytesOutPerSecond),
+      detalhe: `↓ ${formatarTaxa(rede.bytesInPerSecond)} · ↑ ${formatarTaxa(rede.bytesOutPerSecond)}`,
+    }));
+  }
+
+  return `<div class="status-metricas">${tiles.join('')}</div>`;
 }
 
 function nomeProcesso(caminho) {

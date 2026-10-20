@@ -60,11 +60,11 @@ import {
   formatarTaxa,
 } from '../imports/api';
 import {
-  graficoCpuHtml,
-  graficoMemoriaHtml,
-  graficoGpuHtml,
+  metricasSistemaHtml,
   processosSistemaHtml,
 } from '../imports/ui/dashboard';
+import { avaliarSaude } from '../imports/ui/saude';
+import { veredito, grupoRecolhivel } from '../imports/ui/widgets';
 
 const ROTULOS_SECAO = {
   quickplay: 'Quick Play',
@@ -865,6 +865,10 @@ function agendarRenderStatus() {
   });
 }
 
+// O re-render da Status reescreve o HTML a cada amostra; sem lembrar se o
+// bloco técnico estava aberto, ele fecharia sozinho na cara de quem lê.
+let detalhesTecnicosAbertos = false;
+
 function definirStatusConteudo(html) {
   const tela = el('view-status');
   const conteudo = el('status-conteudo');
@@ -979,17 +983,14 @@ function renderStatus() {
 
   definirStatusConteudo(`
     <p class="status-amostra">Amostra de ${horaIso(contrato.capturedAt)} · contrato v${contrato.contractVersion}${estado === 'offline' ? ' — feed offline, mostrando o último sample' : ''}</p>
+    ${veredito(avaliarSaude({ contrato, historicoCpu: historicoCpu.get(), historicoGpu: historicoGpu.get() }))}
+    ${metricasSistemaHtml(contrato, { cpu: historicoCpu.get(), memoria: historicoMemoria.get(), gpu: historicoGpu.get() })}
     ${processosSistemaHtml(contrato, {
       encerrados: processosEncerrados,
       encerrando: processosEncerrando,
       erro: erroProcessos,
     })}
-    <div class="status-graficos">
-      ${graficoCpuHtml(historicoCpu.get(), contrato)}
-      ${graficoMemoriaHtml(historicoMemoria.get(), contrato)}
-      ${graficoGpuHtml(historicoGpu.get(), contrato)}
-    </div>
-    ${cartoes.length ? `<div class="status-grid">${cartoes.join('')}</div>` : '<div class="em-breve vidro"><div class="secao-titulo">Sem cartões</div><p>O motor não enviou nenhum bloco neste sample.</p></div>'}
+    ${cartoes.length ? grupoRecolhivel('Detalhes técnicos', `<div class="status-grid">${cartoes.join('')}</div>`, { aberto: detalhesTecnicosAbertos }) : '<div class="em-breve vidro"><div class="secao-titulo">Sem cartões</div><p>O motor não enviou nenhum bloco neste sample.</p></div>'}
     ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Último problema no feed:</strong> ${escaparHtml(erro)}</div>` : ''}
   `);
 }
@@ -1108,6 +1109,10 @@ function configurarInstalacaoPwa() {
 }
 
 function registrarEventos() {
+  // `toggle` não borbulha: captura na fase de captura para guardar o estado.
+  document.addEventListener('toggle', (evento) => {
+    if (evento.target.matches?.('.status-detalhes')) detalhesTecnicosAbertos = evento.target.open;
+  }, true);
   document.addEventListener('click', aoClicarAtalhos);
   document.addEventListener('pointerdown', aoPressionarAlca);
   document.addEventListener('submit', aoEnviarAtalho);
