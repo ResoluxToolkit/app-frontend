@@ -25,6 +25,8 @@ export function resolverUrlWs(loc) {
   return `${protocolo}//${contexto.host}/api/v1/ws`;
 }
 
+import { cabecalhosAcesso, comToken, esquecerToken, salvarToken } from './acesso.js';
+
 // Turnos locais levam minutos (medido no engine: 34 s a 3 min+).
 const TIMEOUT_SONDA_MS = 2000;
 const TIMEOUT_TURNO_MS = 5 * 60 * 1000;
@@ -40,6 +42,15 @@ export class ErroApi extends Error {
 let proximoIdWs = 1;
 
 async function lerEnvelopeErro(resposta) {
+  // 401 fora do pareamento = token velho ou ausente: esquece o token e
+  // pede o QR de novo, em vez de repetir uma credencial que não vale.
+  if (resposta.status === 401) {
+    esquecerToken();
+    return new ErroApi(
+      'unauthorized',
+      'Este aparelho não está pareado. Leia o QR do painel no Mac para entrar.',
+    );
+  }
   let codigo = `http_${resposta.status}`;
   let mensagem = resposta.statusText || 'Erro HTTP';
   try {
@@ -61,12 +72,52 @@ export class ResoluxDaemon {
     this.nome = 'daemon';
   }
 
+  // Toda chamada HTTP ao motor passa aqui para levar o token do aparelho.
+  pedir(caminho, opcoes = {}) {
+    return fetch(`${this.base}${caminho}`, {
+      ...opcoes,
+      headers: cabecalhosAcesso(opcoes.headers),
+    });
+  }
+
+  // URL do WS com o token do aparelho (o navegador não deixa pôr header).
+  urlWs() {
+    return comToken(this.wsUrl);
+  }
+
+  // Pareamento (contrato do motor, resumo em docs/PAREAMENTO.md): o Mac
+  // pede o código rotativo que vai no QR; o celular devolve o código e
+  // recebe o token do aparelho.
+  async obterPareamento() {
+    const res = await this.pedir('/api/v1/pareamento');
+    if (!res.ok) throw await lerEnvelopeErro(res);
+    return res.json();
+  }
+
+  async parear(codigo) {
+    const res = await fetch(`${this.base}/api/v1/pareamento`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo }),
+    });
+    if (res.status === 401) {
+      throw new ErroApi('pairing_invalid', 'Código vencido ou inválido. Leia o QR de novo.');
+    }
+    if (res.status === 429) {
+      throw new ErroApi('rate_limited', 'Muitas tentativas. Espere um minuto e leia o QR de novo.');
+    }
+    if (!res.ok) throw await lerEnvelopeErro(res);
+    const corpo = await res.json();
+    salvarToken(corpo.token);
+    return corpo;
+  }
+
   async sondar() {
     // Sonda curta: decide se o daemon está de pé sem segurar a UI.
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), TIMEOUT_SONDA_MS);
     try {
-      const res = await fetch(`${this.base}/api/v1/health`, {
+      const res = await this.pedir('/api/v1/health', {
         signal: ctrl.signal,
       });
       if (!res.ok) throw await lerEnvelopeErro(res);
@@ -80,13 +131,13 @@ export class ResoluxDaemon {
   }
 
   async getSession() {
-    const res = await fetch(`${this.base}/api/v1/session`);
+    const res = await this.pedir('/api/v1/session');
     if (!res.ok) throw await lerEnvelopeErro(res);
     return res.json();
   }
 
   async patchSession(patch) {
-    const res = await fetch(`${this.base}/api/v1/session`, {
+    const res = await this.pedir('/api/v1/session', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
@@ -96,7 +147,7 @@ export class ResoluxDaemon {
   }
 
   async getTools() {
-    const res = await fetch(`${this.base}/api/v1/tools`);
+    const res = await this.pedir('/api/v1/tools');
     if (!res.ok) throw await lerEnvelopeErro(res);
     return res.json();
   }
@@ -104,13 +155,13 @@ export class ResoluxDaemon {
   // Conversa persistida pelo daemon em ~/.resolux — leitura e limpeza
   // pela API v1; o front nunca toca no disco.
   async obterConversa() {
-    const res = await fetch(`${this.base}/api/v1/conversa`);
+    const res = await this.pedir('/api/v1/conversa');
     if (!res.ok) throw await lerEnvelopeErro(res);
     return res.json();
   }
 
   async apagarConversa() {
-    const res = await fetch(`${this.base}/api/v1/conversa`, {
+    const res = await this.pedir('/api/v1/conversa', {
       method: 'DELETE',
     });
     if (!res.ok) throw await lerEnvelopeErro(res);
@@ -129,7 +180,7 @@ export class ResoluxDaemon {
     const conectar = () => {
       if (cancelado) return;
       const id = `conv-${Date.now()}-${++tentativa}`;
-      socket = new WebSocket(this.wsUrl);
+      socket = new WebSocket(this.urlWs());
       const ws = socket;
 
       ws.onopen = () => {
@@ -181,7 +232,7 @@ export class ResoluxDaemon {
     const conectar = () => {
       if (cancelado) return;
       const id = `mon-${Date.now()}-${++tentativa}`;
-      socket = new WebSocket(this.wsUrl);
+      socket = new WebSocket(this.urlWs());
       const ws = socket;
 
       ws.onopen = () => {
@@ -237,7 +288,7 @@ export class ResoluxDaemon {
   // daemon). CAMINHO DE TESTE — a assinatura definitiva vem por WS
   // (ver assinarMonitor acima). A UI nunca fala com o Arena diretamente.
   async getComposition() {
-    const res = await fetch(`${this.base}/api/v1/arena/api/v1/composition`);
+    const res = await this.pedir('/api/v1/arena/api/v1/composition');
     if (!res.ok) throw await lerEnvelopeErro(res);
     return res.json();
   }
@@ -248,9 +299,9 @@ export class ResoluxDaemon {
   // engine Swift em ArenaREST.thumbnailData). CAMINHO DE TESTE: no
   // canal WS definitivo as thumbs vêm junto com a composição.
   urlThumbnail(clipID, stamp) {
-    return (
+    return comToken(
       `${this.base}/api/v1/arena/api/v1/composition/clips/by-id/` +
-      `${clipID}/thumbnail/${stamp}`
+      `${clipID}/thumbnail/${stamp}`,
     );
   }
 
@@ -260,7 +311,7 @@ export class ResoluxDaemon {
   enviarChat(texto, callbacks = {}) {
     const id = `msg-${Date.now()}-${proximoIdWs++}`;
     let encerrado = false;
-    const ws = new WebSocket(this.wsUrl);
+    const ws = new WebSocket(this.urlWs());
 
     const timer = setTimeout(() => {
       finalizar();

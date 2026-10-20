@@ -43,7 +43,7 @@ Navegador (bundle estático)
   passa pela fachada (`obterBackend()`), e o `MockDaemon` implementa exatamente
   a mesma interface (`sondar`, `getSession`, `patchSession`, `getTools`,
   `enviarChat`, `obterConversa`, `apagarConversa`, `assinarConversa`,
-  `assinarMonitor`, `urlThumbnail`), incluindo a validação do contrato (campo
+  `assinarMonitor`, `urlThumbnail`, `obterPareamento`, `parear`), incluindo a validação do contrato (campo
   desconhecido → 400, mesmo envelope de erro `ErroApi`). Método novo no
   `ResoluxDaemon` exige o par no `MockDaemon`. O botão de origem na topbar
   mostra qual motor respondeu — esconder isso é considerado bug.
@@ -111,6 +111,7 @@ Navegador (bundle estático)
 | `imports/api/index.js` | Fachada de backend + estado da sessão do motor e do monitor da grade. |
 | `imports/api/client.js` | `ResoluxDaemon`: cliente HTTP/WebSocket da API v1. |
 | `imports/api/mock.js` | `MockDaemon`: mesma interface, respostas locais. |
+| `imports/api/acesso.js` | Token do aparelho pareado: guarda no `localStorage` e anexa às chamadas (header ou `?token=`). |
 | `imports/api/monitorSistema.js` | Feed SSE `/monitor` da aba Status (CPU/RAM/GPU, portas, NDI etc.) e históricos. |
 | `imports/ui/signal.js` | `Sinal`: pub/sub reativo mínimo, substituto do ReactiveVar. |
 | `imports/ui/store.js` | Estado global da UI em `Sinal` (mensagens, seção ativa, zoom, rótulos). |
@@ -233,6 +234,11 @@ da sessão.
 
 - O daemon aceita só origens locais (`localhost`/`127.0.0.1`/`::1`); não há
   CORS nem rede externa no contrato.
+- Celular entra pelo QR do Remote: a URL leva um código que o motor gira a
+  cada 5 min; o celular devolve o código e recebe um token do aparelho, que vai
+  em toda chamada. Contrato em `../engine/docs/API-CONTRATO.md` (seção
+  "Pareamento do celular"); `docs/PAREAMENTO.md` resume o lado do cliente.
+  Motor antigo sem a rota (`404`): o painel avisa que o QR abre sem pareamento.
 - `ToolPolicy` é read-only e deny-by-default na v1 — a UI trata escrita como
   fixa e só muda o que `PATCH /api/v1/session` aceita
   (`mode`, `backend`, `model`, `toolAllowlist`).

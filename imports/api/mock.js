@@ -149,6 +149,18 @@ function camadaTimeGridExemplo() {
   };
 }
 
+// Validade do código do QR — o mesmo teto pedido ao motor real.
+export const VALIDADE_PAREAMENTO_S = 300;
+
+function codigoAleatorio(bytes = 16) {
+  const valores = new Uint8Array(bytes);
+  globalThis.crypto.getRandomValues(valores);
+  return btoa(String.fromCharCode(...valores))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
+
 export class MockDaemon {
   constructor() {
     this.nome = 'mock';
@@ -168,6 +180,30 @@ export class MockDaemon {
 
   async sondar() {
     return true; // o mock está sempre "de pé"
+  }
+
+  // Mesmo formato do motor: código rotativo com `expiraEm` em epoch
+  // segundos. No mock ele só exercita a UI — nenhum celular alcança o
+  // mock, que vive dentro da aba.
+  async obterPareamento(agoraMs = Date.now()) {
+    const agora = agoraMs / 1000;
+    if (!this.pareamento || this.pareamento.expiraEm <= agora) {
+      this.pareamento = {
+        codigo: codigoAleatorio(),
+        expiraEm: Math.floor(agora) + VALIDADE_PAREAMENTO_S,
+      };
+    }
+    return { ...this.pareamento };
+  }
+
+  // Compara e gira o código (uso único), como o motor deve fazer.
+  async parear(codigo, agoraMs = Date.now()) {
+    const atual = this.pareamento;
+    if (!atual || !codigo || codigo !== atual.codigo || atual.expiraEm <= agoraMs / 1000) {
+      throw new ErroApi('pairing_invalid', 'Código vencido ou inválido. Leia o QR de novo.');
+    }
+    this.pareamento = null;
+    return { token: `mock-${codigoAleatorio()}` };
   }
 
   async getSession() {

@@ -8,7 +8,10 @@ import { Sinal } from '../ui/signal.js';
 
 import { ResoluxDaemon } from './client.js';
 import { MockDaemon } from './mock.js';
+import { lerCodigoPareamento, limparCodigoDaUrl } from '../ui/remoto.js';
 import { montarGrade, mesmaGrade, progressosTimeGrid } from '../ui/grade.js';
+
+export { cabecalhosAcesso } from './acesso.js';
 
 export {
   estadoSistema,
@@ -75,6 +78,34 @@ export async function atualizarSessao(patch) {
     return false;
   } finally {
     salvandoSessao.set(false);
+  }
+}
+
+// ------------------------------------------------------------
+// Pareamento do celular
+// ------------------------------------------------------------
+
+// Código rotativo do QR, pedido a quem estiver respondendo (no Mac).
+export function obterPareamento() {
+  return obterBackend().obterPareamento();
+}
+
+// 'nenhum' | 'pareando' | 'pareado' | 'recusado' | 'limitado'
+export const estadoPareamento = new Sinal('nenhum');
+
+// O celular abriu a URL do QR: devolve o código ao motor real (só ele
+// valida; o mock não existe para outro aparelho) e guarda o token.
+// Roda antes da sonda, para a sessão já nascer autorizada.
+export async function concluirPareamentoDaUrl(loc) {
+  const codigo = lerCodigoPareamento(loc);
+  if (!codigo) return;
+  limparCodigoDaUrl();
+  estadoPareamento.set('pareando');
+  try {
+    await daemon.parear(codigo);
+    estadoPareamento.set('pareado');
+  } catch (e) {
+    estadoPareamento.set(e?.codigo === 'rate_limited' ? 'limitado' : 'recusado');
   }
 }
 

@@ -7,6 +7,7 @@
 // ------------------------------------------------------------
 
 import { Sinal } from '../ui/signal.js';
+import { comToken } from './acesso.js';
 
 // 'parado' | 'conectando' | 'ok' | 'offline'
 export const estadoSistema = new Sinal('parado');
@@ -92,7 +93,8 @@ export function aplicarContratoSistema(evento) {
 // (CriadorFonte/url injetáveis para o teste no Node.)
 export function assinarSistema(CriadorFonte = EventSource, url = URL_PADRAO) {
   estadoSistema.set('conectando');
-  const fonte = new CriadorFonte(url);
+  // EventSource não leva header: o token do aparelho vai na query.
+  const fonte = new CriadorFonte(comToken(url));
   fonte.onopen = () => {
     erroSistema.set(null);
     estadoSistema.set('ok');
