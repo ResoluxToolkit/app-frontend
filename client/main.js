@@ -175,6 +175,7 @@ function mensagemAparelho() {
   if (estado === 'pareado') return 'Este aparelho está pareado.';
   if (estado === 'recusado') return 'Código vencido ou inválido. Leia o QR de novo no Mac.';
   if (estado === 'limitado') return 'Muitas tentativas. Espere um minuto e leia o QR de novo.';
+  if (estado === 'sem_resposta') return 'O Mac não respondeu. Leia o QR de novo.';
   if (estado === 'pareando') return 'Pareando com o Mac…';
   return '';
 }
@@ -239,11 +240,23 @@ function tickRemoto() {
   }
 }
 
+// O código é de uso único: quando um celular pareia, o motor gira o
+// código no próximo GET. Sem evento para isso no contrato, o Mac
+// confere a cada poucos segundos (só com a aba visível) e troca o QR.
+const CONFERIR_CODIGO_MS = 5000;
+
+function conferirCodigo() {
+  if (!pareamentoAtual || document.hidden) return;
+  atualizarRemoto();
+}
+
 function iniciarRemoto() {
   backendAtivo.assinar((valor) => {
     if (valor !== 'sondando') atualizarRemoto();
   });
+  estadoPareamento.assinar(() => atualizarRemoto());
   setInterval(tickRemoto, 1000);
+  setInterval(conferirCodigo, CONFERIR_CODIGO_MS);
 }
 
 // ------------------------------------------------------------

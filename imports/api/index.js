@@ -11,6 +11,8 @@ import { MockDaemon } from './mock.js';
 import { lerCodigoPareamento, limparCodigoDaUrl } from '../ui/remoto.js';
 import { montarGrade, mesmaGrade, progressosTimeGrid } from '../ui/grade.js';
 
+import { aoEsquecerToken, lerToken } from './acesso.js';
+
 export { cabecalhosAcesso } from './acesso.js';
 
 export {
@@ -90,8 +92,11 @@ export function obterPareamento() {
   return obterBackend().obterPareamento();
 }
 
-// 'nenhum' | 'pareando' | 'pareado' | 'recusado' | 'limitado'
-export const estadoPareamento = new Sinal('nenhum');
+// 'nenhum' | 'pareando' | 'pareado' | 'recusado' | 'limitado' | 'sem_resposta'
+// Recarregar o celular (sem `?p=`) mantém "pareado" enquanto o token
+// salvo existir; um 401 apaga o token e volta para 'nenhum'.
+export const estadoPareamento = new Sinal(lerToken() ? 'pareado' : 'nenhum');
+aoEsquecerToken(() => estadoPareamento.set('nenhum'));
 
 // O celular abriu a URL do QR: devolve o código ao motor real (só ele
 // valida; o mock não existe para outro aparelho) e guarda o token.
@@ -105,7 +110,8 @@ export async function concluirPareamentoDaUrl(loc) {
     await daemon.parear(codigo);
     estadoPareamento.set('pareado');
   } catch (e) {
-    estadoPareamento.set(e?.codigo === 'rate_limited' ? 'limitado' : 'recusado');
+    const porCodigo = { rate_limited: 'limitado', sem_resposta: 'sem_resposta' };
+    estadoPareamento.set(porCodigo[e?.codigo] || 'recusado');
   }
 }
 
