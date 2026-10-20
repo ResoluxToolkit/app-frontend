@@ -69,10 +69,10 @@ Vite (porta 3003) faz proxy de `/api/v1` e `/monitor` para `127.0.0.1:1980`.
 
 ### O que o cliente está esperando
 
-1. **Pareamento do celular por QR com token que gira** (PR #9 aberto, esperando
-   a engine). Proposta completa em `GET`/`POST /api/v1/pareamento`, com token
-   em `Authorization: Bearer` no HTTP e `?token=` em WS, SSE e thumbnails.
-   Enquanto não existir, o QR mostra só o endereço e avisa que não há validação.
+1. **Desvincular aparelho pareado.** O pareamento por QR (`GET`/`POST
+   /api/v1/pareamento`, token em `Authorization: Bearer` no HTTP e `?token=` em
+   WS, SSE e thumbnails) já é contrato da engine; falta uma rota para revogar
+   um token sem reiniciar o daemon.
 2. **Migrar para WebSocket** o que ainda é HTTP/SSE: `/health`, `/session`,
    `/tools`, `/conversa`, miniaturas (idealmente junto com a composição no
    `monitor.update`) e o SSE `/monitor` da aba Status. Cada um depende de

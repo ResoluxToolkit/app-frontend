@@ -174,6 +174,7 @@ function mensagemAparelho() {
   const estado = estadoPareamento.get();
   if (estado === 'pareado') return 'Este aparelho está pareado.';
   if (estado === 'recusado') return 'Código vencido ou inválido. Leia o QR de novo no Mac.';
+  if (estado === 'limitado') return 'Muitas tentativas. Espere um minuto e leia o QR de novo.';
   if (estado === 'pareando') return 'Pareando com o Mac…';
   return '';
 }

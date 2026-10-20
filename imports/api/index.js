@@ -90,7 +90,7 @@ export function obterPareamento() {
   return obterBackend().obterPareamento();
 }
 
-// 'nenhum' | 'pareando' | 'pareado' | 'recusado'
+// 'nenhum' | 'pareando' | 'pareado' | 'recusado' | 'limitado'
 export const estadoPareamento = new Sinal('nenhum');
 
 // O celular abriu a URL do QR: devolve o código ao motor real (só ele
@@ -104,8 +104,8 @@ export async function concluirPareamentoDaUrl(loc) {
   try {
     await daemon.parear(codigo);
     estadoPareamento.set('pareado');
-  } catch (_) {
-    estadoPareamento.set('recusado');
+  } catch (e) {
+    estadoPareamento.set(e?.codigo === 'rate_limited' ? 'limitado' : 'recusado');
   }
 }
 

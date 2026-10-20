@@ -236,8 +236,9 @@ da sessão.
   CORS nem rede externa no contrato.
 - Celular entra pelo QR do Remote: a URL leva um código que o motor gira a
   cada 5 min; o celular devolve o código e recebe um token do aparelho, que vai
-  em toda chamada. Proposta de contrato em `docs/PAREAMENTO.md` (o motor ainda
-  não valida; até lá o painel avisa que o QR abre sem pareamento).
+  em toda chamada. Contrato em `../engine/docs/API-CONTRATO.md` (seção
+  "Pareamento do celular"); `docs/PAREAMENTO.md` resume o lado do cliente.
+  Motor antigo sem a rota (`404`): o painel avisa que o QR abre sem pareamento.
 - `ToolPolicy` é read-only e deny-by-default na v1 — a UI trata escrita como
   fixa e só muda o que `PATCH /api/v1/session` aceita
   (`mode`, `backend`, `model`, `toolAllowlist`).

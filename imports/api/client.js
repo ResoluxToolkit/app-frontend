@@ -85,7 +85,7 @@ export class ResoluxDaemon {
     return comToken(this.wsUrl);
   }
 
-  // Pareamento (proposta de contrato, ver docs/PAREAMENTO.md): o Mac
+  // Pareamento (contrato do motor, resumo em docs/PAREAMENTO.md): o Mac
   // pede o código rotativo que vai no QR; o celular devolve o código e
   // recebe o token do aparelho.
   async obterPareamento() {
@@ -102,6 +102,9 @@ export class ResoluxDaemon {
     });
     if (res.status === 401) {
       throw new ErroApi('pairing_invalid', 'Código vencido ou inválido. Leia o QR de novo.');
+    }
+    if (res.status === 429) {
+      throw new ErroApi('rate_limited', 'Muitas tentativas. Espere um minuto e leia o QR de novo.');
     }
     if (!res.ok) throw await lerEnvelopeErro(res);
     const corpo = await res.json();

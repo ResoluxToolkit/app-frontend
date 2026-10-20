@@ -1,9 +1,9 @@
-# Pareamento do celular — proposta de contrato para o motor
+# Pareamento do celular — lado do cliente
 
-Status: **proposta do cliente**. O contrato é do motor (`app/docs/API-CONTRATO.md`);
-este arquivo diz exatamente o que o frontend já envia e espera, para o motor
-validar. Enquanto o motor não tiver a rota, o painel mostra o QR só com o
-endereço e avisa que ainda não há validação.
+Status: **aceito pelo motor**. A fonte da verdade é a seção "Pareamento do
+celular" de `../engine/docs/API-CONTRATO.md`; este arquivo diz o que o
+frontend envia e espera. Com motor antigo, sem a rota (`404`), o painel mostra
+o QR só com o endereço e avisa que ainda não há validação.
 
 ## Fluxo
 
@@ -42,8 +42,10 @@ Corpo: `{"codigo":"tndmY0-eaexPPL1Dxv7U-g"}`
 - Código igual ao atual e dentro da validade → `200 {"token":"<32 bytes base64url>"}`
   e gira o código na hora.
 - Senão → `401 {"error":{"code":"pairing_invalid","message":"..."}}`.
-- Comparação em tempo constante. Basta um limite simples de tentativas erradas
-  por IP (ex.: 5 por minuto) para não dar para chutar.
+- Mais de 5 tentativas erradas por IP em 60 s → `429 rate_limited`; o celular
+  pede para esperar um minuto antes de ler o QR de novo.
+- Corpo malformado → `400 corpo_invalido`.
+- Comparação em tempo constante.
 
 Os tokens podem ficar só em memória: reiniciar o motor desfaz os pareamentos e
 o celular lê o QR de novo.
