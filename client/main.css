@@ -6,15 +6,16 @@
 
 :root {
     /* Tokens de cor */
-    /* Desktop: Liquid Glass Tinted (dark), de Nezz/homeassistant-visionos-theme */
-    --fundo: #1b1107;
-    --vidro: rgba(36, 36, 44, 0.5);
-    --vidro-forte: rgba(36, 36, 44, 0.72);
-    --borda-vidro: rgba(152, 152, 157, 0.3);
-    --texto: rgba(255, 255, 255, 0.96);
-    --texto-2: rgba(235, 235, 245, 0.6);
-    --texto-3: rgba(235, 235, 245, 0.4);
-    --marca: #ff9f0a;
+    /* Desktop: Liquid Glass Tinted (dark), de Nezz/homeassistant-visionos-theme,
+       com fundo, superfícies e laranja do site resolux.app */
+    --fundo: oklch(13.5% 0.007 286);
+    --vidro: oklch(23% 0.009 286 / 0.55);
+    --vidro-forte: oklch(23% 0.009 286 / 0.8);
+    --borda-vidro: oklch(98% 0 0 / 0.1);
+    --texto: oklch(97% 0.003 286);
+    --texto-2: oklch(67% 0.014 286);
+    --texto-3: oklch(52% 0.012 286);
+    --marca: oklch(69% 0.2 39);
     --sucesso: #32d74b;
     --alerta: #ffd60a;
     --perigo: #ff453a;
@@ -31,8 +32,8 @@
     --gb-laranja: #ff9f0a;
 
     /* Marca — par soft/border (15% + 35%) */
-    --marca-soft: rgba(255, 159, 10, 0.15);
-    --marca-border: rgba(255, 159, 10, 0.35);
+    --marca-soft: oklch(69% 0.2 39 / 0.15);
+    --marca-border: oklch(69% 0.2 39 / 0.35);
     --violeta-soft: rgba(191, 90, 242, 0.15);
     --violeta-border: rgba(191, 90, 242, 0.4);
     --perigo-soft: rgba(255, 69, 58, 0.15);
@@ -112,8 +113,8 @@ button {
     right: -160px;
     background: radial-gradient(
         circle,
-        rgba(211, 134, 155, 0.13),
-        rgba(131, 165, 152, 0.05) 55%,
+        oklch(70% 0.2 310 / 0.09),
+        oklch(70% 0.2 310 / 0.03) 55%,
         transparent 70%
     );
 }
@@ -124,8 +125,8 @@ button {
     left: 12%;
     background: radial-gradient(
         circle,
-        rgba(254, 128, 25, 0.11),
-        rgba(254, 128, 25, 0.04) 55%,
+        oklch(69% 0.2 39 / 0.14),
+        oklch(69% 0.2 39 / 0.05) 55%,
         transparent 70%
     );
 }
@@ -236,7 +237,7 @@ button {
     height: 10px;
     border-radius: 50%;
     background: var(--marca);
-    box-shadow: 0 0 12px rgba(254, 128, 25, 0.8);
+    box-shadow: 0 0 12px oklch(69% 0.2 39 / 0.8);
 }
 /* Metal líquido (metal-fx) no "Toolkit": o span hospeda o canvas do
    shader e o rim; letter-spacing zerado para os glifos do canvas
@@ -345,7 +346,7 @@ button {
 }
 .dot.marca {
     background: var(--marca);
-    box-shadow: 0 0 8px rgba(254, 128, 25, 0.7);
+    box-shadow: 0 0 8px oklch(69% 0.2 39 / 0.7);
 }
 .dot.neutro {
     background: var(--texto-3);
@@ -391,7 +392,7 @@ button {
     transition: background var(--duracao-rapida) var(--ease-out);
 }
 .btn-nova:hover {
-    background: rgba(254, 128, 25, 0.22);
+    background: oklch(69% 0.2 39 / 0.22);
 }
 .btn-nova svg {
     width: 14px;
@@ -870,8 +871,8 @@ button {
 .trilho .preenchimento {
     height: 100%;
     border-radius: 999px;
-    background: linear-gradient(90deg, var(--marca), #fabd2f);
-    box-shadow: 0 0 10px rgba(254, 128, 25, 0.5);
+    background: linear-gradient(90deg, var(--marca), oklch(78% 0.15 55));
+    box-shadow: 0 0 10px oklch(69% 0.2 39 / 0.5);
     transition: width 400ms var(--ease-out);
 }
 .barra-contexto .pct {
@@ -1034,7 +1035,7 @@ button {
         rgba(184, 187, 38, 0.6) 100deg,
         rgba(142, 192, 124, 0.6) 140deg,
         rgba(131, 165, 152, 0.6) 180deg,
-        rgba(254, 128, 25, 0.6) 220deg,
+        oklch(69% 0.2 39 / 0.6) 220deg,
         rgba(211, 134, 155, 0.6) 260deg,
         rgba(211, 134, 155, 0.6) 300deg,
         rgba(251, 73, 52, 0.6) 360deg
@@ -1100,7 +1101,7 @@ button {
     height: 56px;
     padding: 0 8px 0 22px;
     border-radius: 999px;
-    background: rgba(29, 32, 33, 0.85);
+    background: oklch(19% 0.008 286 / 0.85);
     border: 1px solid var(--borda-vidro);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
@@ -1113,7 +1114,7 @@ button {
 }
 .composer.focado {
     border-color: var(--marca);
-    box-shadow: 0 0 0 3px rgba(254, 128, 25, 0.18);
+    box-shadow: 0 0 0 3px oklch(69% 0.2 39 / 0.18);
 }
 .composer input {
     flex: 1;
@@ -1193,7 +1194,7 @@ button {
     place-items: center;
     background: var(--marca);
     color: #fff;
-    box-shadow: 0 4px 14px rgba(254, 128, 25, 0.45);
+    box-shadow: 0 4px 14px oklch(69% 0.2 39 / 0.45);
     transition:
         transform var(--duracao-rapida) var(--ease-out),
         box-shadow var(--duracao-rapida) var(--ease-out),
@@ -1201,7 +1202,7 @@ button {
 }
 .btn-enviar:hover {
     transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(254, 128, 25, 0.55);
+    box-shadow: 0 6px 18px oklch(69% 0.2 39 / 0.55);
 }
 .btn-enviar svg {
     width: 17px;
@@ -1336,7 +1337,7 @@ button {
     transition: background var(--duracao-rapida) var(--ease-out);
 }
 .btn-revisar:hover {
-    background: rgba(254, 128, 25, 0.22);
+    background: oklch(69% 0.2 39 / 0.22);
 }
 
 /* ------------------------------------------------------------
@@ -1498,7 +1499,7 @@ button {
 }
 .campo-texto:focus {
     border-color: var(--marca);
-    box-shadow: 0 0 0 3px rgba(254, 128, 25, 0.18);
+    box-shadow: 0 0 0 3px oklch(69% 0.2 39 / 0.18);
 }
 
 .politica-leitura {
@@ -1939,7 +1940,7 @@ button {
     font-size: 12px;
     font-weight: 500;
     color: var(--texto);
-    background: rgba(29, 32, 33, 0.55);
+    background: oklch(19% 0.008 286 / 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
     overflow: hidden;
@@ -1970,7 +1971,7 @@ button {
     font-size: 11px;
     font-variant-numeric: tabular-nums;
     color: var(--texto);
-    background: rgba(29, 32, 33, 0.55);
+    background: oklch(19% 0.008 286 / 0.55);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
 }
@@ -2074,7 +2075,7 @@ html.mobile .app-body {
     border: 1px solid rgba(255, 255, 255, 0.14);
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03)),
-        rgba(46, 42, 40, 0.82);
+        oklch(23% 0.009 286 / 0.82);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.2),
         0 12px 30px rgba(0, 0, 0, 0.45);
@@ -2527,22 +2528,14 @@ html.mobile .nav-mobile {
 /* Aparelho mobile: Bubble Gruvbox Menubar (dark), de silasmariusz/Bubble_Theme_2026.
    Sobrepõe só os tokens; o resto segue o padrão desktop. */
 html.mobile {
-    --fundo: #1b1107;
-    --vidro: rgba(36, 36, 44, 0.55);
-    --vidro-forte: rgba(36, 36, 44, 0.78);
-    --borda-vidro: rgba(235, 219, 178, 0.14);
-    --texto: #ebdbb2;
-    --texto-2: #e4d5ad;
-    --texto-3: #a89984;
-    --marca: #fe943f;
+    --vidro: oklch(23% 0.009 286 / 0.6);
+    --vidro-forte: oklch(23% 0.009 286 / 0.82);
     --sucesso: #a6e3a1;
     --alerta: #f9e2af;
     --perigo: #f38ba8;
     --info: #89b4fa;
     --raio-card: 28px;
     --topbar-h: 78px;
-    --marca-soft: rgba(254, 148, 63, 0.15);
-    --marca-border: rgba(254, 148, 63, 0.35);
     --perigo-soft: rgba(243, 139, 168, 0.15);
     --perigo-border: rgba(243, 139, 168, 0.35);
     --sucesso-soft: rgba(166, 227, 161, 0.15);
@@ -2607,7 +2600,7 @@ html.mobile {
             color-mix(in srgb, var(--cena) 14%, transparent),
             transparent 60%
         ),
-        rgba(18, 18, 26, 0.6);
+        oklch(19% 0.008 286 / 0.6);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.12),
         0 0 16px color-mix(in srgb, var(--cena) 28%, transparent),
@@ -2692,7 +2685,7 @@ html.mobile {
             color-mix(in srgb, var(--cena) 42%, transparent),
             color-mix(in srgb, var(--cena) 10%, transparent)
         ),
-        rgba(18, 18, 26, 0.6);
+        oklch(19% 0.008 286 / 0.6);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.18),
         0 0 26px color-mix(in srgb, var(--cena) 60%, transparent),
