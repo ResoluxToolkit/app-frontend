@@ -3119,3 +3119,40 @@ button.cena-tecla:active {
 .status-detalhes-corpo {
     margin-top: 14px;
 }
+
+/* Trava do painel: aparelho sem pareamento (ou com o motor fora) não vê
+   nada do app por trás. */
+.bloqueio {
+    position: fixed;
+    inset: 0;
+    z-index: 900;
+    display: grid;
+    place-items: center;
+    padding: 24px 16px;
+    background: var(--fundo);
+}
+
+.bloqueio[hidden] {
+    display: none;
+}
+
+.bloqueio-cartao {
+    max-width: 360px;
+    padding: 28px 24px;
+    border: 1px solid var(--borda-vidro);
+    border-radius: 24px;
+    background: var(--vidro-forte);
+    text-align: center;
+}
+
+.bloqueio-titulo {
+    margin: 0 0 10px;
+    font-size: 1.15rem;
+    color: var(--texto);
+}
+
+.bloqueio-texto {
+    margin: 0;
+    color: var(--texto-2);
+    line-height: 1.45;
+}

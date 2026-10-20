@@ -115,12 +115,48 @@ export async function concluirPareamentoDaUrl(loc) {
   }
 }
 
-export async function sondarBackend() {
+// Quem pode ver o painel: 'verificando' | 'liberado' | 'sem_pareamento' | 'motor_fora'.
+// O motor só protege os dados; sem esta trava o celular via a casca do
+// app (ou o mock inteiro, com o motor fora) e parecia ter entrado.
+export const acessoPainel = new Sinal('verificando');
+
+// O mock só serve para desenvolver no próprio Mac. Aberto pela rede, o
+// mock faria um aparelho não pareado "entrar" num painel falso.
+export function hostLocal(loc = typeof window !== 'undefined' ? window.location : undefined) {
+  const host = loc?.hostname ?? '';
+  return host === '' || host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
+}
+
+aoEsquecerToken(() => {
+  if (escolhido === daemon) acessoPainel.set('sem_pareamento');
+});
+
+export async function sondarBackend(loc) {
   backendAtivo.set('sondando');
   const dePe = await daemon.sondar();
+  if (!dePe && !hostLocal(loc)) {
+    escolhido = daemon;
+    backendAtivo.set('daemon');
+    acessoPainel.set('motor_fora');
+    return escolhido;
+  }
   escolhido = dePe ? daemon : mock;
   backendAtivo.set(dePe ? 'daemon' : 'mock');
-  await Promise.all([carregarSessao(), carregarFerramentas()]);
+  // `/health` é público; `/session` diz se este aparelho tem acesso.
+  // No Mac o motor nunca responde 401.
+  try {
+    sessaoMotor.set(await escolhido.getSession());
+    erroSessao.set(null);
+  } catch (e) {
+    if (e?.codigo === 'unauthorized') {
+      acessoPainel.set('sem_pareamento');
+      return escolhido;
+    }
+    sessaoMotor.set(null);
+    erroSessao.set(`${e.codigo || 'erro'}: ${e.message}`);
+  }
+  acessoPainel.set('liberado');
+  await carregarFerramentas();
   return escolhido;
 }
 

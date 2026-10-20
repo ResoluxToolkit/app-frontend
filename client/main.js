@@ -60,6 +60,7 @@ import {
   cabecalhosAcesso,
   obterPareamento,
   estadoPareamento,
+  acessoPainel,
   concluirPareamentoDaUrl,
 } from '../imports/api';
 import {
@@ -203,14 +204,14 @@ async function atualizarRemoto() {
     pareamentoAtual = await obterPareamento();
   } catch (e) {
     pareamentoAtual = null;
-    const origem = urlRemota();
-    if (e.codigo === 'not_found' && origem) {
-      // Motor ainda sem a rota de pareamento: QR só com o endereço, e a
-      // tela diz que a porta está aberta, sem fingir proteção.
-      renderRemoto('Motor ainda não valida código: o QR abre sem pareamento.', origem);
-    } else {
-      // Celular (o motor só gera código para o próprio Mac) ou motor fora.
+    // Nunca desenhar QR sem código: sem a rota, sem motor ou fora do Mac,
+    // o bloco só explica onde o QR aparece.
+    if (e.codigo === 'forbidden') {
       renderRemoto(mensagemAparelho() || 'O QR de pareamento aparece no painel do Mac.');
+    } else if (e.codigo === 'not_found') {
+      renderRemoto('Este motor não tem pareamento: qualquer aparelho na rede entra. Atualize a engine.');
+    } else {
+      renderRemoto('Sem o motor no ar, não há código de pareamento.');
     }
     return;
   } finally {
@@ -250,7 +251,29 @@ function conferirCodigo() {
   atualizarRemoto();
 }
 
+// Trava do painel inteiro, acima de tudo menos o preloader.
+function renderBloqueio() {
+  const caixa = el('bloqueio');
+  if (!caixa) return;
+  const acesso = acessoPainel.get();
+  caixa.hidden = acesso === 'liberado' || acesso === 'verificando';
+  if (caixa.hidden) return;
+  if (acesso === 'motor_fora') {
+    el('bloqueio-titulo').textContent = 'O Mac não está respondendo';
+    el('bloqueio-texto').textContent = 'Confira se o Resolux está aberto no Mac e recarregue esta página.';
+    return;
+  }
+  el('bloqueio-titulo').textContent = 'Este aparelho não está pareado';
+  const motivo = estadoPareamento.get();
+  el('bloqueio-texto').textContent =
+    motivo === 'recusado' || motivo === 'limitado' || motivo === 'sem_resposta'
+      ? mensagemAparelho()
+      : 'Abra o painel no Mac e leia o QR do bloco Remote.';
+}
+
 function iniciarRemoto() {
+  acessoPainel.assinar(renderBloqueio);
+  estadoPareamento.assinar(renderBloqueio);
   backendAtivo.assinar((valor) => {
     if (valor !== 'sondando') atualizarRemoto();
   });
