@@ -107,13 +107,14 @@ Navegador (bundle estático)
 | `imports/api/mock.js` | `MockDaemon`: mesma interface, respostas locais. |
 | `imports/api/monitorSistema.js` | Feed SSE `/monitor` da aba Status (CPU/RAM/GPU, portas, NDI etc.) e históricos. |
 | `imports/ui/signal.js` | `Sinal`: pub/sub reativo mínimo, substituto do ReactiveVar. |
-| `imports/ui/store.js` | Estado global da UI em `Sinal` (mensagens, seção ativa, contexto %, zoom, rótulos). |
-| `imports/ui/persistencia.js` | `localStorage` degradável (conversa, contexto, aviso de instalação). |
+| `imports/ui/store.js` | Estado global da UI em `Sinal` (mensagens, seção ativa, zoom, rótulos). |
+| `imports/ui/persistencia.js` | `localStorage` degradável (conversa, atalhos, aviso de instalação). |
 | `imports/ui/markdown.js` | Markdown → HTML das respostas do agente (escapa antes de formatar). |
 | `imports/ui/dashboard.js` | Tiles de métrica (CPU, RAM, GPU, rede) e lista de processos da aba Status. |
 | `imports/ui/widgets.js` | Kit de widgets em funções puras que devolvem HTML: `sparkline`, `tileMetrica`, `veredito`, `grupoRecolhivel`. A cor de cada tile vem de `--acento`. |
 | `imports/ui/saude.js` | `avaliarSaude`: veredito da aba Status (Tudo certo / Atenção / Problema) por regras sobre o contrato do motor e o histórico recente. Limites em `LIMITES`. |
 | `imports/ui/remoto.js` | QR Code sem dependências + URL de LAN do painel remoto. |
+| `imports/ui/ditado.js` | Ditado por voz do Assistente (Web Speech API, só em contexto seguro). |
 | `imports/ui/preloader.js`, `pwa.js`, `wco.js`, `logoMetal.js` | Abertura, instalação PWA/iOS, Window Controls Overlay e logo `metal-fx`. |
 | `imports/ui/orb.js` | Renderer vanilla dos ThinkingOrbs (`thinking-orbs/engine`) em `<canvas data-orb="estado">`; respeita `prefers-reduced-motion`. |
 | `imports/ui/grade.js` | Parser do `GET /composition` do Arena (leitura pura): endereço `camada.coluna`, slot, clipe ativo e regras de thumbnail. Espelha as regras da engine Swift. |

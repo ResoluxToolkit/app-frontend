@@ -6,7 +6,6 @@ import {
   ouvindo,
   focado,
   rascunho,
-  contextoPct,
   estadoAgente,
   rotuloTrabalho,
   rotuloProcessando,
@@ -17,7 +16,6 @@ import {
   atualizarMensagem,
   resetarConversa,
   incorporarTurnos,
-  subirContexto,
   zoomGrade,
   ajustarZoom,
   resetarZoom,
@@ -30,6 +28,7 @@ import { formatarTempo } from '../imports/ui/grade';
 import { aplicarOrdem, proximoTamanho, resolverAtalho, sanitizarAtalho } from '../imports/ui/atalhos';
 import { secaoDaPlataforma } from '../imports/ui/plataforma';
 import { desenharQr, gerarMatrizQr, urlRemota } from '../imports/ui/remoto';
+import { juntarDitado, reconhecedorDisponivel } from '../imports/ui/ditado';
 import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
 import { iniciarPreloader } from '../imports/ui/preloader';
@@ -155,54 +154,27 @@ function atualizarVisao() {
 }
 
 // ------------------------------------------------------------
-// Remote: QR cosmético para pareamento do celular
+// Remote: QR com o endereço de rede para abrir o painel no celular
 // ------------------------------------------------------------
-
-const CHAVE_REMOTO = 'resolux-remote-vinculado';
-
-function remotoVinculado() {
-  return localStorage.getItem(CHAVE_REMOTO) === '1';
-}
 
 function atualizarRemoto() {
   const url = urlRemota();
   const estado = el('remoto-estado');
   const canvas = el('remoto-qr');
   const link = el('remoto-url');
-  const botao = el('btn-remoto');
-  if (!estado || !canvas || !link || !botao) return;
+  if (!estado || !canvas || !link) return;
 
   if (!url) {
     estado.textContent = 'Abra pelo endereço de rede para gerar o QR.';
     canvas.hidden = true;
     link.hidden = true;
-    botao.hidden = true;
     return;
   }
 
-  const vinculado = remotoVinculado();
-  estado.textContent = vinculado ? 'Painel pareado' : 'Leia para abrir no celular';
-  canvas.hidden = vinculado;
-  link.hidden = vinculado;
-  botao.hidden = false;
-  botao.textContent = vinculado ? 'Desvincular' : 'Autorizar pareamento';
-
-  if (!vinculado) {
-    link.href = url;
-    link.textContent = url;
-    desenharQr(canvas, gerarMatrizQr(url));
-  }
-}
-
-function aoClicarRemoto() {
-  if (remotoVinculado()) localStorage.removeItem(CHAVE_REMOTO);
-  else localStorage.setItem(CHAVE_REMOTO, '1');
-  atualizarRemoto();
-}
-
-function registrarRemoto() {
-  el('btn-remoto')?.addEventListener('click', aoClicarRemoto);
-  atualizarRemoto();
+  estado.textContent = 'Leia para abrir no celular';
+  link.href = url;
+  link.textContent = url;
+  desenharQr(canvas, gerarMatrizQr(url));
 }
 
 // ------------------------------------------------------------
@@ -251,15 +223,11 @@ function htmlMensagem(mensagem) {
       <header class="cabecalho">
         <canvas class="orb-canvas" data-orb="${estadoOrb}" data-orb-tamanho="20" width="20" height="20" role="img" aria-label="Resolux ${estadoOrb}"></canvas>
         <span class="nome">RESOLUX</span>
-        <span class="badge-pro">Pro</span>
       </header>
       <div class="corpo markdown">${markdownParaHtml(mensagem.texto)}</div>
       <footer class="rodape">
-        <span class="meta">${escaparHtml(mensagem.hora)} · ${mensagem.tokens ?? 0} tokens</span>
+        <span class="meta">${escaparHtml(mensagem.hora)}</span>
         <div class="acoes">
-          <button class="acao-circ" aria-label="Ramificar conversa" title="Ramificar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="4" r="1.8"/><circle cx="4" cy="12" r="1.8"/><circle cx="12" cy="6" r="1.8"/><path d="M4 5.8v4.4M4 10c0-2.5 4-1.5 6.2-2.6"/></svg></button>
-          <button class="acao-circ" aria-label="Buscar na conversa" title="Buscar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg></button>
-          <button class="acao-circ" aria-label="Ouvir resposta" title="Ouvir"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.5v3h2.5L9 13V3L5 6.5H2.5z"/><path d="M11.5 5.5a3.5 3.5 0 010 5M13.2 4a6 6 0 010 8"/></svg></button>
           <button class="acao-circ copiar" data-texto="${escaparHtml(mensagem.texto)}" aria-label="Copiar resposta" title="Copiar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5A1.5 1.5 0 009 1.5H4A1.5 1.5 0 002.5 3v5A1.5 1.5 0 004 9.5h.5"/></svg></button>
         </div>
       </footer>
@@ -294,7 +262,7 @@ function atualizarUltimoCartao(cartao, msg) {
   const corpo = cartao.querySelector('.corpo');
   if (corpo) corpo.innerHTML = markdownParaHtml(msg.texto);
   const meta = cartao.querySelector('.meta');
-  if (meta) meta.textContent = `${msg.hora} · ${msg.tokens ?? 0} tokens`;
+  if (meta) meta.textContent = msg.hora;
   const copiar = cartao.querySelector('.copiar');
   if (copiar) copiar.dataset.texto = msg.texto;
 }
@@ -331,14 +299,6 @@ function atualizarComposer() {
   mic.setAttribute('aria-label', ouvindo.get() ? 'Parar ditado' : 'Ditar por voz');
 }
 
-function atualizarContexto() {
-  const pct = contextoPct.get();
-  el('preenchimento-contexto').style.width = `${pct}%`;
-  el('preenchimento-painel').style.width = `${pct}%`;
-  el('pct-contexto').textContent = `${pct}%`;
-  el('meta-contexto').textContent = `${pct}% usado · 18 mil tokens`;
-}
-
 function rolarThread() {
   requestAnimationFrame(() => {
     const area = el('thread-scroll');
@@ -355,7 +315,6 @@ function garantirMensagemTurno() {
     papel: 'agente',
     texto: '',
     hora: horaAgora(),
-    tokens: 0,
     estadoOrb: 'breathing',
     streaming: true,
   });
@@ -384,7 +343,6 @@ function enviar(texto) {
     estadoAgente.set('breathing');
     turnoAtual = null;
     msgIdTurno = null;
-    subirContexto(4);
     rolarThread();
   };
 
@@ -410,7 +368,6 @@ function enviar(texto) {
       const id = garantirMensagemTurno();
       atualizarMensagem(id, {
         texto,
-        tokens: Math.max(1, Math.round(texto.length / 4)),
         streaming: false,
       });
       el('composer-input').value = '';
@@ -446,14 +403,41 @@ function parar() {
   estadoAgente.set('breathing');
 }
 
+let reconhecimento = null;
+
 function alternarVoz() {
-  if (ouvindo.get()) {
+  if (reconhecimento) {
+    reconhecimento.stop();
+    return;
+  }
+  const Reconhecedor = reconhecedorDisponivel();
+  if (!Reconhecedor) return;
+
+  const campo = el('composer-input');
+  const base = campo.value;
+  reconhecimento = new Reconhecedor();
+  reconhecimento.lang = 'pt-BR';
+  reconhecimento.interimResults = true;
+  reconhecimento.onresult = (evento) => {
+    const fala = Array.from(evento.results, (resultado) => resultado[0].transcript).join('');
+    campo.value = juntarDitado(base, fala);
+    rascunho.set(campo.value);
+  };
+  // Erro (permissão negada, silêncio) sempre termina em onend.
+  reconhecimento.onend = () => {
+    reconhecimento = null;
     ouvindo.set(false);
     if (!processando.get()) estadoAgente.set('breathing');
-  } else {
-    ouvindo.set(true);
-    estadoAgente.set('listening');
+  };
+
+  try {
+    reconhecimento.start();
+  } catch (_) {
+    reconhecimento = null;
+    return;
   }
+  ouvindo.set(true);
+  estadoAgente.set('listening');
 }
 
 // ------------------------------------------------------------
@@ -1160,6 +1144,7 @@ function registrarEventos() {
   el('composer-input').addEventListener('input', (evento) => rascunho.set(evento.target.value));
   el('composer-input').addEventListener('focus', () => focado.set(true));
   el('composer-input').addEventListener('blur', () => focado.set(false));
+  el('btn-mic').hidden = !reconhecedorDisponivel();
   el('btn-mic').addEventListener('click', alternarVoz);
   el('btn-parar').addEventListener('click', parar);
 
@@ -1235,7 +1220,6 @@ function registrarAssinaturas() {
   estadoAgente.assinar(atualizarTrabalho);
   rotuloTrabalho.assinar(atualizarTrabalho);
   rotuloProcessando.assinar(atualizarComposer);
-  contextoPct.assinar(atualizarContexto);
 
   estadoMonitor.assinar(renderMonitor);
   gradeMonitor.assinar(renderMonitor);
@@ -1268,14 +1252,13 @@ function registrarAssinaturas() {
 registrarEventos();
 aplicarHashInicial();
 registrarAssinaturas();
-registrarRemoto();
+atualizarRemoto();
 iniciarControlesJanela();
 atualizarTopbar();
 atualizarVisao();
 renderMensagens();
 atualizarTrabalho();
 atualizarComposer();
-atualizarContexto();
 iniciarOrbs();
 aplicarMetalNoTexto(el('logo-metal'));
 configurarInstalacaoPwa();
