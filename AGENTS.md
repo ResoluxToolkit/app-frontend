@@ -56,14 +56,20 @@ Navegador (bundle estático)
   é o daemon. `montarGrade` + `mesmaGrade` evitam re-render a cada tick (as
   thumbnails piscariam); o progresso da TimeGrid anda num `Sinal` separado
   (`progressoGrade`) pelo mesmo motivo.
-- Composição é do desktop e **Atalhos** é do mobile (`max-width: 900px`): seções
+- Composição é do desktop e **Atalhos** é do mobile: seções
   separadas (`monitor` e `atalhos`, cada uma só na sua plataforma) que leem a
   mesma grade e a mesma assinatura (`SECOES_GRADE`); só a apresentação muda.
   No mobile as colunas viram atalhos (o operador cria a tecla pelo nome da
   coluna), sem a grade de clipes. `montarGrade` devolve `colunas` com
   `preenchidos`/`tocando` por coluna, derivados dos clips — o `connected` da
   coluna no Arena só vira "Connected" com a coluna inteira disparada, então
-  não serve de estado. Ao cruzar os 900px, e em links `#monitor`/`#atalhos`,
+  não serve de estado. Mobile é decidido pelo **aparelho**, não pela largura:
+  o script `detectar-plataforma` no `<head>` do `index.html` põe `html.mobile`
+  antes do primeiro paint (celular pelo user agent/Client Hints, tablet por
+  ser touch sem hover; largura só sem `matchMedia`). Desktop com a janela
+  estreita continua desktop. O CSS do mobile usa `html.mobile`, não
+  `@media (max-width: 900px)`. Para testar o mobile no desktop, use a emulação
+  de aparelho do DevTools. Em links `#monitor`/`#atalhos`,
   `secaoDaPlataforma` (`imports/ui/plataforma.js`) leva para a seção
   equivalente da outra plataforma.
   A barra inferior do celular é uma cápsula de vidro (`.nav-capsula`) com um
@@ -160,7 +166,7 @@ Vite mantém `/api/v1` no mesmo origem durante o desenvolvimento.
   ou um resultado e o sistema roteia o sinal. Ele nunca precisa saber de MIDI,
   DMX, OSC, REST, NDI ou WebSocket, nem mapear nada: "receber mídia e entregar
   OSC" é trabalho do sistema. Telas, rótulos e erros falam a língua do
-  operador (cenas, atalhos, mídia, nomes que ele deu), nunca a do protocolo.
+  operador (atalhos, mídia, nomes que ele deu), nunca a do protocolo.
   O deck de atalhos é o exemplo: a tecla vincula pelo nome da coluna.
 - **Nada de fingir capacidade**: o mock anuncia zero ferramentas em vez de
   inventar uma lista nem thumbnails; seção sem tela cai no `#view-em-breve`.

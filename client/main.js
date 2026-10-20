@@ -482,18 +482,16 @@ function barraTimeGrid(camada, celula) {
   return `<div class="clip-progresso" data-endereco="${escaparHtml(celula.id)}" style="--progresso: ${valor}"></div>`;
 }
 
-const consultaMobile = typeof window !== 'undefined' && window.matchMedia
-  ? window.matchMedia('(max-width: 900px)')
-  : null;
-
 // Composição (grade de clipes) é do desktop; Atalhos (o deck de teclas ligadas
 // às colunas pelo nome) é do mobile: quem opera o evento fica no desktop. As
 // duas seções leem a mesma grade e a mesma assinatura (uma só, viva enquanto
 // uma delas estiver na tela).
 const SECOES_GRADE = new Set(['monitor', 'atalhos']);
 
+// Decidido pelo aparelho no <head> (script detectar-plataforma do index.html),
+// não pela largura: desktop com a janela estreita continua desktop.
 function ehMobile() {
-  return Boolean(consultaMobile && consultaMobile.matches);
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('mobile');
 }
 
 const ICONE_CENA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"></rect></svg>';
@@ -1239,12 +1237,6 @@ function registrarAssinaturas() {
   erroMonitor.assinar(renderMonitor);
   progressoGrade.assinar(atualizarBarrasTimeGrid);
   backendAtivo.assinar(renderMonitor);
-  // Ao cruzar os 900px a pessoa vai para a seção equivalente da outra plataforma.
-  if (consultaMobile) {
-    consultaMobile.addEventListener('change', () => {
-      secaoAtiva.set(secaoDaPlataforma(secaoAtiva.get(), ehMobile()));
-    });
-  }
   atalhos.assinar(renderAtalhosDeck);
   gradeMonitor.assinar(renderAtalhosDeck);
 

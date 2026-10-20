@@ -131,6 +131,25 @@
         #preloader.saindo { opacity: 0; }
       }
     </style>
+    <script id="detectar-plataforma">
+      // Plataforma pelo aparelho, antes do primeiro paint: o menu já nasce no
+      // formato certo e diminuir a janela no desktop não vira mobile. Celular
+      // pelo user agent (Client Hints quando há); tablet por ser touch sem
+      // hover. Sem nada disso (navegador sem matchMedia), cai na largura.
+      (function () {
+        var nav = window.navigator || {};
+        var ua = nav.userAgent || '';
+        var mm = window.matchMedia;
+        var celular = nav.userAgentData && nav.userAgentData.mobile === true;
+        var touchSemHover = Boolean(mm && (nav.maxTouchPoints || 0) > 0 &&
+          mm('(hover: none) and (pointer: coarse)').matches);
+        var mobile = celular ||
+          /iPhone|iPod|Android.+Mobile|Windows Phone|IEMobile|BlackBerry|Opera Mini/i.test(ua) ||
+          touchSemHover ||
+          (!mm && (window.innerWidth || 0) <= 900);
+        document.documentElement.classList.toggle('mobile', mobile);
+      })();
+    </script>
   </head>
   <body>
     <div id="preloader" class="preloader" role="status">
