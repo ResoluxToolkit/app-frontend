@@ -131,6 +131,25 @@
         #preloader.saindo { opacity: 0; }
       }
     </style>
+    <script id="detectar-plataforma">
+      // Plataforma pelo aparelho, antes do primeiro paint: o menu já nasce no
+      // formato certo e diminuir a janela no desktop não vira mobile. Celular
+      // pelo user agent (Client Hints quando há); tablet por ser touch sem
+      // hover. Sem nada disso (navegador sem matchMedia), cai na largura.
+      (function () {
+        var nav = window.navigator || {};
+        var ua = nav.userAgent || '';
+        var mm = window.matchMedia;
+        var celular = nav.userAgentData && nav.userAgentData.mobile === true;
+        var touchSemHover = Boolean(mm && (nav.maxTouchPoints || 0) > 0 &&
+          mm('(hover: none) and (pointer: coarse)').matches);
+        var mobile = celular ||
+          /iPhone|iPod|Android.+Mobile|Windows Phone|IEMobile|BlackBerry|Opera Mini/i.test(ua) ||
+          touchSemHover ||
+          (!mm && (window.innerWidth || 0) <= 900);
+        document.documentElement.classList.toggle('mobile', mobile);
+      })();
+    </script>
   </head>
   <body>
     <div id="preloader" class="preloader" role="status">
@@ -167,7 +186,6 @@
         <nav class="topbar-nav" aria-label="Seções">
           <button class="nav-pill" type="button" data-secao="monitor">Composição</button>
           <button class="nav-pill ativa" type="button" data-secao="assistente">Assistente</button>
-          <button class="nav-pill" type="button" data-secao="atalhos">Atalhos</button>
           <button class="nav-pill" type="button" data-secao="status">Status</button>
           <button class="nav-pill" type="button" data-secao="ajustes">Ajustes</button>
         </nav>
@@ -197,7 +215,6 @@
                 <div class="remote-estado" id="remoto-estado">Preparando acesso…</div>
                 <canvas id="remoto-qr" class="qr-canvas" width="160" height="160" aria-label="QR Code do painel remoto"></canvas>
                 <a id="remoto-url" class="remote-url" href="#" target="_blank" rel="noopener"></a>
-                <button id="btn-remoto" class="remote-btn" type="button"></button>
               </div>
             </details>
           </aside>
@@ -210,12 +227,6 @@
                 <canvas id="orb-status" class="orb-canvas" data-orb="working" data-orb-tamanho="20" width="20" height="20" aria-hidden="true"></canvas>
                 <span id="rotulo-trabalho">Analisando o monitor do Arena…</span>
                 <span id="rotulo-estado" class="rotulo-estado working">working</span>
-              </div>
-              <div class="barra-contexto">
-                <span class="rotulo"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><rect x="4.5" y="4.5" width="7" height="7" rx="1.5"/><path d="M6 1.5v3M10 1.5v3M6 11.5v3M10 11.5v3M1.5 6h3M1.5 10h3M11.5 6h3M11.5 10h3" stroke-linecap="round"/></svg>Contexto</span>
-                <div class="trilho"><div id="preenchimento-contexto" class="preenchimento" style="width: 9%"></div></div>
-                <span id="pct-contexto" class="pct">9%</span>
-                <button class="engrenagem" aria-label="Ajustes de contexto"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 1.8v1.7M8 12.5v1.7M1.8 8h1.7M12.5 8h1.7M3.6 3.6l1.2 1.2M11.2 11.2l1.2 1.2M12.4 3.6l-1.2 1.2M4.8 11.2l-1.2 1.2"/></svg></button>
               </div>
             </div>
 
@@ -233,7 +244,7 @@
                     </button>
                   </div>
                   <div id="composer-ativo">
-                    <input id="composer-input" type="text" placeholder="Pergunte ao Resolux ou peça uma ação…" autocomplete="off" aria-label="Mensagem para o Resolux" />
+                    <input id="composer-input" type="text" placeholder="Pergunte ao Resolux sobre o Arena…" autocomplete="off" aria-label="Mensagem para o Resolux" />
                     <button type="button" id="btn-mic" class="btn-mic" aria-label="Ditar por voz" aria-pressed="false"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="8.5" rx="2.5"/><path d="M3 7.5a5 5 0 0010 0M8 12.5v2"/></svg></button>
                     <button type="submit" class="btn-enviar" aria-label="Enviar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 13V3M3.5 7.5L8 3l4.5 4.5"/></svg></button>
                   </div>
@@ -241,25 +252,6 @@
               </div>
             </div>
           </main>
-
-          <aside class="contexto">
-            <div class="secao-titulo">Contexto ativo</div>
-            <div class="card-contexto vidro">
-              <div class="card-titulo">Janela de contexto</div>
-              <div class="trilho"><div id="preenchimento-painel" class="preenchimento" style="width: 9%"></div></div>
-              <div id="meta-contexto" class="card-meta">9% usado · 18 mil tokens</div>
-            </div>
-            <div class="secao-titulo">Fontes</div>
-            <button class="fonte-item"><svg class="icone-info" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="4" width="9" height="8" rx="2"/><path d="M10.5 7l4-2.5v7L10.5 9" stroke-linejoin="round"/></svg><span class="nome">Câmera</span><span class="estado ativa"><span class="dot sucesso"></span>Ativa</span></button>
-            <button class="fonte-item"><svg class="icone-violeta" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="9" rx="1.5"/><path d="M5.5 14h5" stroke-linecap="round"/></svg><span class="nome">Monitor</span><span class="estado ativa"><span class="dot sucesso"></span>Ativa</span></button>
-            <button class="fonte-item"><svg class="icone-neutro" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v4M8 6l3-3M8 6L5 3"/><path d="M2.5 9.5h11v4h-11z"/></svg><span class="nome">Starter</span><span class="estado">Inativa</span></button>
-            <div class="secao-titulo">Memória</div>
-            <div class="card-contexto vidro">
-              <div class="memoria-item"><span class="losango"></span>Prefere respostas em português</div>
-              <div class="memoria-item"><span class="losango"></span>Projeto ativo: Resolux macOS + iOS</div>
-              <button class="btn-revisar">Revisar memória</button>
-            </div>
-          </aside>
         </section>
 
         <section id="view-monitor" class="pagina-simples" hidden>
@@ -317,22 +309,12 @@
       </div>
 
       <nav id="nav-mobile" class="nav-mobile" aria-label="Seções no mobile">
-        <button class="nav-pill" type="button" data-secao="assistente">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 0 3.4 9.8l2.1.9-.8-2.2A5.5 5.5 0 0 0 8 2.5Z"/></svg>
-          Assistente
-        </button>
-        <button class="nav-pill" type="button" data-secao="atalhos">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="5" height="5" rx="1"></rect><rect x="9" y="2" width="5" height="5" rx="1"></rect><rect x="2" y="9" width="5" height="5" rx="1"></rect><rect x="9" y="9" width="5" height="5" rx="1"></rect></svg>
-          Atalhos
-        </button>
-        <button class="nav-pill" type="button" data-secao="monitor">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v10M8 3v10M13 3v10"></path></svg>
-          Cenas
-        </button>
-        <button class="nav-pill" type="button" data-secao="status">
-          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2.5a5.5 5.5 0 1 1-5.5 5.5"/><path d="M8 5v3l2 2"/><path d="M2.5 2v3h3"/></svg>
-          Status
-        </button>
+        <div class="nav-capsula">
+          <span class="nav-indicador" aria-hidden="true"></span>
+          <button class="nav-pill" type="button" data-secao="assistente"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 3C6.5 3 2 6.8 2 11.5c0 2.3 1.1 4.4 2.9 5.9-.2 1.4-.8 2.6-1.9 3.6-.3.3-.1.9.4 1 2.1-.1 3.9-.9 5.3-2 .8.2 1.5.3 2.3.3 5.5 0 10-3.8 10-8.8S17.5 3 12 3z"></path></svg><span>Assistente</span></button>
+          <button class="nav-pill" type="button" data-secao="atalhos"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2.2"></rect><rect x="13" y="3" width="8" height="8" rx="2.2"></rect><rect x="3" y="13" width="8" height="8" rx="2.2"></rect><rect x="13" y="13" width="8" height="8" rx="2.2"></rect></svg><span>Atalhos</span></button>
+          <button class="nav-pill" type="button" data-secao="status"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="4" y="12" width="4.4" height="8" rx="1.6"></rect><rect x="9.8" y="4" width="4.4" height="16" rx="1.6"></rect><rect x="15.6" y="9" width="4.4" height="11" rx="1.6"></rect></svg><span>Status</span></button>
+        </div>
       </nav>
     </div>
 

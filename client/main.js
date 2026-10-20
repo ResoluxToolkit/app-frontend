@@ -6,7 +6,6 @@ import {
   ouvindo,
   focado,
   rascunho,
-  contextoPct,
   estadoAgente,
   rotuloTrabalho,
   rotuloProcessando,
@@ -17,7 +16,6 @@ import {
   atualizarMensagem,
   resetarConversa,
   incorporarTurnos,
-  subirContexto,
   zoomGrade,
   ajustarZoom,
   resetarZoom,
@@ -28,7 +26,9 @@ import { aplicarMetalNoTexto } from '../imports/ui/logoMetal';
 import { markdownParaHtml } from '../imports/ui/markdown';
 import { formatarTempo } from '../imports/ui/grade';
 import { aplicarOrdem, proximoTamanho, resolverAtalho, sanitizarAtalho } from '../imports/ui/atalhos';
+import { secaoDaPlataforma } from '../imports/ui/plataforma';
 import { desenharQr, gerarMatrizQr, urlRemota } from '../imports/ui/remoto';
+import { juntarDitado, reconhecedorDisponivel } from '../imports/ui/ditado';
 import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
 import { iniciarPreloader } from '../imports/ui/preloader';
@@ -59,11 +59,11 @@ import {
   formatarTaxa,
 } from '../imports/api';
 import {
-  graficoCpuHtml,
-  graficoMemoriaHtml,
-  graficoGpuHtml,
+  metricasSistemaHtml,
   processosSistemaHtml,
 } from '../imports/ui/dashboard';
+import { avaliarSaude } from '../imports/ui/saude';
+import { veredito, grupoRecolhivel } from '../imports/ui/widgets';
 
 const ROTULOS_SECAO = {
   quickplay: 'Quick Play',
@@ -114,6 +114,23 @@ function atualizarTopbar() {
   document.querySelectorAll('.nav-pill').forEach((botao) => {
     botao.classList.toggle('ativa', botao.dataset.secao === secaoAtiva.get());
   });
+  posicionarIndicadorMobile();
+}
+
+// O indicador da barra do celular desliza até o item ativo. A transição só
+// liga depois de fixar a posição inicial (o reflow forçado abaixo), para ele
+// não "viajar" a partir do zero quando o app abre.
+function posicionarIndicadorMobile() {
+  const capsula = document.querySelector('#nav-mobile .nav-capsula');
+  if (!capsula) return;
+  const botoes = [...capsula.querySelectorAll('.nav-pill')];
+  const indice = botoes.findIndex((botao) => botao.dataset.secao === secaoAtiva.get());
+  capsula.style.setProperty('--ativo', String(Math.max(indice, 0)));
+  capsula.classList.toggle('sem-ativo', indice < 0);
+  if (!capsula.classList.contains('animavel')) {
+    void capsula.offsetWidth;
+    capsula.classList.add('animavel');
+  }
 }
 
 function atualizarVisao() {
@@ -129,62 +146,35 @@ function atualizarVisao() {
   }
   el('app-body').classList.toggle('app-body-simples', secao !== 'assistente');
 
-  // O deck de atalhos lê as colunas do mesmo poll da Composição.
-  if (secao === 'monitor' || secao === 'atalhos') iniciarMonitor();
+  // Composição e Atalhos leem o mesmo poll da grade.
+  if (SECOES_GRADE.has(secao)) iniciarMonitor();
   if (secao === 'atalhos') renderAtalhosDeck();
   if (secao === 'status') iniciarStatus();
   if (secao === 'ajustes') renderAjustes();
 }
 
 // ------------------------------------------------------------
-// Remote: QR cosmético para pareamento do celular
+// Remote: QR com o endereço de rede para abrir o painel no celular
 // ------------------------------------------------------------
-
-const CHAVE_REMOTO = 'resolux-remote-vinculado';
-
-function remotoVinculado() {
-  return localStorage.getItem(CHAVE_REMOTO) === '1';
-}
 
 function atualizarRemoto() {
   const url = urlRemota();
   const estado = el('remoto-estado');
   const canvas = el('remoto-qr');
   const link = el('remoto-url');
-  const botao = el('btn-remoto');
-  if (!estado || !canvas || !link || !botao) return;
+  if (!estado || !canvas || !link) return;
 
   if (!url) {
     estado.textContent = 'Abra pelo endereço de rede para gerar o QR.';
     canvas.hidden = true;
     link.hidden = true;
-    botao.hidden = true;
     return;
   }
 
-  const vinculado = remotoVinculado();
-  estado.textContent = vinculado ? 'Painel pareado' : 'Leia para abrir no celular';
-  canvas.hidden = vinculado;
-  link.hidden = vinculado;
-  botao.hidden = false;
-  botao.textContent = vinculado ? 'Desvincular' : 'Autorizar pareamento';
-
-  if (!vinculado) {
-    link.href = url;
-    link.textContent = url;
-    desenharQr(canvas, gerarMatrizQr(url));
-  }
-}
-
-function aoClicarRemoto() {
-  if (remotoVinculado()) localStorage.removeItem(CHAVE_REMOTO);
-  else localStorage.setItem(CHAVE_REMOTO, '1');
-  atualizarRemoto();
-}
-
-function registrarRemoto() {
-  el('btn-remoto')?.addEventListener('click', aoClicarRemoto);
-  atualizarRemoto();
+  estado.textContent = 'Leia para abrir no celular';
+  link.href = url;
+  link.textContent = url;
+  desenharQr(canvas, gerarMatrizQr(url));
 }
 
 // ------------------------------------------------------------
@@ -233,15 +223,11 @@ function htmlMensagem(mensagem) {
       <header class="cabecalho">
         <canvas class="orb-canvas" data-orb="${estadoOrb}" data-orb-tamanho="20" width="20" height="20" role="img" aria-label="Resolux ${estadoOrb}"></canvas>
         <span class="nome">RESOLUX</span>
-        <span class="badge-pro">Pro</span>
       </header>
       <div class="corpo markdown">${markdownParaHtml(mensagem.texto)}</div>
       <footer class="rodape">
-        <span class="meta">${escaparHtml(mensagem.hora)} · ${mensagem.tokens ?? 0} tokens</span>
+        <span class="meta">${escaparHtml(mensagem.hora)}</span>
         <div class="acoes">
-          <button class="acao-circ" aria-label="Ramificar conversa" title="Ramificar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="4" cy="4" r="1.8"/><circle cx="4" cy="12" r="1.8"/><circle cx="12" cy="6" r="1.8"/><path d="M4 5.8v4.4M4 10c0-2.5 4-1.5 6.2-2.6"/></svg></button>
-          <button class="acao-circ" aria-label="Buscar na conversa" title="Buscar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg></button>
-          <button class="acao-circ" aria-label="Ouvir resposta" title="Ouvir"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.5v3h2.5L9 13V3L5 6.5H2.5z"/><path d="M11.5 5.5a3.5 3.5 0 010 5M13.2 4a6 6 0 010 8"/></svg></button>
           <button class="acao-circ copiar" data-texto="${escaparHtml(mensagem.texto)}" aria-label="Copiar resposta" title="Copiar"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5A1.5 1.5 0 009 1.5H4A1.5 1.5 0 002.5 3v5A1.5 1.5 0 004 9.5h.5"/></svg></button>
         </div>
       </footer>
@@ -276,7 +262,7 @@ function atualizarUltimoCartao(cartao, msg) {
   const corpo = cartao.querySelector('.corpo');
   if (corpo) corpo.innerHTML = markdownParaHtml(msg.texto);
   const meta = cartao.querySelector('.meta');
-  if (meta) meta.textContent = `${msg.hora} · ${msg.tokens ?? 0} tokens`;
+  if (meta) meta.textContent = msg.hora;
   const copiar = cartao.querySelector('.copiar');
   if (copiar) copiar.dataset.texto = msg.texto;
 }
@@ -313,14 +299,6 @@ function atualizarComposer() {
   mic.setAttribute('aria-label', ouvindo.get() ? 'Parar ditado' : 'Ditar por voz');
 }
 
-function atualizarContexto() {
-  const pct = contextoPct.get();
-  el('preenchimento-contexto').style.width = `${pct}%`;
-  el('preenchimento-painel').style.width = `${pct}%`;
-  el('pct-contexto').textContent = `${pct}%`;
-  el('meta-contexto').textContent = `${pct}% usado · 18 mil tokens`;
-}
-
 function rolarThread() {
   requestAnimationFrame(() => {
     const area = el('thread-scroll');
@@ -337,7 +315,6 @@ function garantirMensagemTurno() {
     papel: 'agente',
     texto: '',
     hora: horaAgora(),
-    tokens: 0,
     estadoOrb: 'breathing',
     streaming: true,
   });
@@ -366,7 +343,6 @@ function enviar(texto) {
     estadoAgente.set('breathing');
     turnoAtual = null;
     msgIdTurno = null;
-    subirContexto(4);
     rolarThread();
   };
 
@@ -392,7 +368,6 @@ function enviar(texto) {
       const id = garantirMensagemTurno();
       atualizarMensagem(id, {
         texto,
-        tokens: Math.max(1, Math.round(texto.length / 4)),
         streaming: false,
       });
       el('composer-input').value = '';
@@ -428,14 +403,41 @@ function parar() {
   estadoAgente.set('breathing');
 }
 
+let reconhecimento = null;
+
 function alternarVoz() {
-  if (ouvindo.get()) {
+  if (reconhecimento) {
+    reconhecimento.stop();
+    return;
+  }
+  const Reconhecedor = reconhecedorDisponivel();
+  if (!Reconhecedor) return;
+
+  const campo = el('composer-input');
+  const base = campo.value;
+  reconhecimento = new Reconhecedor();
+  reconhecimento.lang = 'pt-BR';
+  reconhecimento.interimResults = true;
+  reconhecimento.onresult = (evento) => {
+    const fala = Array.from(evento.results, (resultado) => resultado[0].transcript).join('');
+    campo.value = juntarDitado(base, fala);
+    rascunho.set(campo.value);
+  };
+  // Erro (permissão negada, silêncio) sempre termina em onend.
+  reconhecimento.onend = () => {
+    reconhecimento = null;
     ouvindo.set(false);
     if (!processando.get()) estadoAgente.set('breathing');
-  } else {
-    ouvindo.set(true);
-    estadoAgente.set('listening');
+  };
+
+  try {
+    reconhecimento.start();
+  } catch (_) {
+    reconhecimento = null;
+    return;
   }
+  ouvindo.set(true);
+  estadoAgente.set('listening');
 }
 
 // ------------------------------------------------------------
@@ -464,81 +466,25 @@ function barraTimeGrid(camada, celula) {
   return `<div class="clip-progresso" data-endereco="${escaparHtml(celula.id)}" style="--progresso: ${valor}"></div>`;
 }
 
-const consultaMobile = typeof window !== 'undefined' && window.matchMedia
-  ? window.matchMedia('(max-width: 900px)')
-  : null;
+// Composição (grade de clipes) é do desktop; Atalhos (o deck de teclas ligadas
+// às colunas pelo nome) é do mobile: quem opera o evento fica no desktop. As
+// duas seções leem a mesma grade e a mesma assinatura (uma só, viva enquanto
+// uma delas estiver na tela).
+const SECOES_GRADE = new Set(['monitor', 'atalhos']);
 
-// No celular a Composição é leitura pura e mostra só as cenas (colunas do
-// Arena, sem os clipes): quem opera o evento fica no desktop.
+// Decidido pelo aparelho no <head> (script detectar-plataforma do index.html),
+// não pela largura: desktop com a janela estreita continua desktop.
 function ehMobile() {
-  return Boolean(consultaMobile && consultaMobile.matches);
+  return typeof document !== 'undefined' && document.documentElement.classList.contains('mobile');
 }
-
-// Cada cena leva uma cor da paleta, em ciclo, no estilo de um deck de
-// teclas. São só indicadores: sem clique, porque o contrato v1 é leitura.
-const CORES_CENA = [
-  'var(--gb-azul)',
-  'var(--gb-roxo)',
-  'var(--gb-verde)',
-  'var(--gb-laranja)',
-  'var(--gb-vermelho)',
-  'var(--gb-aqua)',
-  'var(--gb-amarelo)',
-];
 
 const ICONE_CENA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"></rect></svg>';
 
-function estadoCena(coluna) {
-  if (coluna.preenchidos === 0) return 'vazia';
-  if (coluna.tocando > 0) return `${coluna.tocando} de ${coluna.preenchidos} tocando`;
-  return coluna.preenchidos === 1 ? '1 clip' : `${coluna.preenchidos} clips`;
-}
+const NOTA_MOCK_GRADE = '<p class="nota-mock">Mock local: grade de exemplo, sem Arena de verdade — por isso não há thumbnails. Com o daemon de pé, a grade e as thumbs vêm do proxy read-only <code>/api/v1/arena/**</code>.</p>';
 
-function cenasCardHtml(grade, status) {
-  const colunas = grade.colunas || [];
-  const noAr = colunas.filter((coluna) => coluna.tocando > 0).length;
-  const teclas = colunas.map((coluna, i) => {
-    const classes = ['cena-tecla'];
-    if (coluna.tocando > 0) classes.push('tocando');
-    if (coluna.preenchidos === 0) classes.push('vazia');
-    const cor = CORES_CENA[i % CORES_CENA.length];
-    const rotulo = escaparHtml(coluna.rotulo);
-    const noArTag = coluna.tocando > 0
-      ? `<span class="cena-no-ar">${coluna.tocando}/${coluna.preenchidos}</span>`
-      : '';
-    return `<li class="${classes.join(' ')}" style="--cena: ${cor}" aria-label="${rotulo}: ${escaparHtml(estadoCena(coluna))}"><span class="cena-numero">${coluna.numero}</span>${noArTag}<span class="cena-icone">${ICONE_CENA}</span><span class="cena-nome">${rotulo}</span></li>`;
-  }).join('');
-  return `<section class="cenas-card vidro${status === 'pollando' ? ' border-beam' : ''}">
-      <div class="card-titulo-linha">
-        <h2>Cenas</h2>
-        <div class="grade-pills">
-          <span class="pill-status">${colunas.length} cenas</span>
-          <span class="pill-status">${noAr} no ar</span>
-        </div>
-      </div>
-      <ul class="cenas-grade">${teclas}</ul>
-    </section>`;
-}
-
-function renderMonitor() {
-  const grade = gradeMonitor.get();
-  const erro = erroMonitor.get();
-  const status = estadoMonitor.get();
-  const backend = backendAtivo.get();
-  const pill = el('monitor-status');
-  pill.textContent = status === 'ok' ? 'conectado' : status === 'pollando' ? 'pollando…' : status === 'erro' ? 'offline' : 'parado';
-  pill.className = `pill-status ${status === 'ok' ? 'pill-sucesso' : status === 'erro' ? 'pill-alerta' : ''}`;
-
-  if (!grade) {
-    el('monitor-conteudo').innerHTML = erro
-      ? `<div class="em-breve vidro"><div class="secao-titulo">Monitor indisponível</div><p><strong>${escaparHtml(erro)}</strong> Sem uma grade boa em memória para mostrar.</p></div>`
-      : `<div class="em-breve vidro"><div class="secao-titulo">Sondando o Arena…</div><p>Primeiro poll da grade ainda não voltou.</p></div>`;
-    return;
-  }
-
-  const mobile = ehMobile();
+function gradeCardHtml(grade, status) {
   const totalClips = grade.camadas.reduce((total, camada) => total + camada.celulas.filter((celula) => celula.preenchido).length, 0);
-  const linhas = mobile ? '' : grade.camadas.map((camada) => {
+  const linhas = grade.camadas.map((camada) => {
     const celulas = camada.celulas.map((celula) => {
       const classes = ['clip-celula'];
       if (celula.ativo) classes.push('ativo');
@@ -569,7 +515,7 @@ function renderMonitor() {
     return `<div class="camada"><div class="camada-rotulo">${escaparHtml(camada.rotulo)}</div><div class="${linha}" style="--zoom: ${zoomGrade.get()}">${celulas}</div></div>`;
   }).join('');
 
-  const cartao = mobile ? cenasCardHtml(grade, status) : `<section class="grade-card vidro${status === 'pollando' ? ' border-beam' : ''}">
+  return `<section class="grade-card vidro${status === 'pollando' ? ' border-beam' : ''}">
       <div class="card-titulo-linha">
         <h2>Grade de clips</h2>
         <div class="grade-pills">
@@ -580,15 +526,32 @@ function renderMonitor() {
   ${linhas}
   <div class="grade-rodape">Lupa: segure e arraste na grade — pra direita amplia, pra esquerda reduz. Duplo clique volta ao 100%.</div>
     </section>`;
+}
+
+function renderMonitor() {
+  if (secaoAtiva.get() !== 'monitor') return;
+  const grade = gradeMonitor.get();
+  const erro = erroMonitor.get();
+  const status = estadoMonitor.get();
+  const pill = el('monitor-status');
+  pill.textContent = status === 'ok' ? 'conectado' : status === 'pollando' ? 'pollando…' : status === 'erro' ? 'offline' : 'parado';
+  pill.className = `pill-status ${status === 'ok' ? 'pill-sucesso' : status === 'erro' ? 'pill-alerta' : ''}`;
+
+  if (!grade) {
+    el('monitor-conteudo').innerHTML = erro
+      ? `<div class="em-breve vidro"><div class="secao-titulo">Monitor indisponível</div><p><strong>${escaparHtml(erro)}</strong> Sem uma grade boa em memória para mostrar.</p></div>`
+      : `<div class="em-breve vidro"><div class="secao-titulo">Sondando o Arena…</div><p>Primeiro poll da grade ainda não voltou.</p></div>`;
+    return;
+  }
 
   el('monitor-conteudo').innerHTML = `
     <div class="monitor-live">
       ${grade.ativo ? `<span class="clip-ativo-nome">${escaparHtml(grade.ativo.nome)}</span><span class="clip-ativo-endereco">tocando em ${escaparHtml(grade.ativo.endereco)}</span>` : '<span class="clip-ativo-nome neutro">nenhum clip tocando</span>'}
       <span class="ultimo-poll">último poll ${horaFormatada(ultimoPollMonitor.get())}</span>
     </div>
-    ${backend === 'mock' ? '<p class="nota-mock">Mock local: grade de exemplo, sem Arena de verdade — por isso não há thumbnails. Com o daemon de pé, a grade e as thumbs vêm do proxy read-only <code>/api/v1/arena/**</code>.</p>' : ''}
+    ${backendAtivo.get() === 'mock' ? NOTA_MOCK_GRADE : ''}
     ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Monitor falhou:</strong> ${escaparHtml(erro)}</div>` : ''}
-    ${cartao}
+    ${gradeCardHtml(grade, status)}
   `;
   if (arrastandoZoom) {
     const cartao = document.querySelector('.grade-card');
@@ -698,6 +661,7 @@ function renderAtalhosDeck() {
         <button type="button" class="pill-status atalho-editar" data-atalho-acao="alternar-edicao">${modoEdicaoAtalhos ? 'Concluir' : 'Editar'}</button>
       </div>
       <ul class="cenas-grade bento${modoEdicaoAtalhos ? ' editando' : ''}">${teclas}${novo}</ul>
+      ${atalhos.get().length === 0 ? '<p class="atalhos-aviso">Nenhum atalho ainda. Toque em Novo e digite o nome de uma coluna do Resolume.</p>' : ''}
       ${avisoAtalho ? `<p class="atalhos-aviso" role="status">${escaparHtml(avisoAtalho)}</p>` : ''}
     </section>`;
   const gradeDepois = deck.querySelector('.cenas-grade');
@@ -885,6 +849,10 @@ function agendarRenderStatus() {
   });
 }
 
+// O re-render da Status reescreve o HTML a cada amostra; sem lembrar se o
+// bloco técnico estava aberto, ele fecharia sozinho na cara de quem lê.
+let detalhesTecnicosAbertos = false;
+
 function definirStatusConteudo(html) {
   const tela = el('view-status');
   const conteudo = el('status-conteudo');
@@ -999,17 +967,14 @@ function renderStatus() {
 
   definirStatusConteudo(`
     <p class="status-amostra">Amostra de ${horaIso(contrato.capturedAt)} · contrato v${contrato.contractVersion}${estado === 'offline' ? ' — feed offline, mostrando o último sample' : ''}</p>
+    ${veredito(avaliarSaude({ contrato, historicoCpu: historicoCpu.get(), historicoGpu: historicoGpu.get() }))}
+    ${metricasSistemaHtml(contrato, { cpu: historicoCpu.get(), memoria: historicoMemoria.get(), gpu: historicoGpu.get() })}
     ${processosSistemaHtml(contrato, {
       encerrados: processosEncerrados,
       encerrando: processosEncerrando,
       erro: erroProcessos,
     })}
-    <div class="status-graficos">
-      ${graficoCpuHtml(historicoCpu.get(), contrato)}
-      ${graficoMemoriaHtml(historicoMemoria.get(), contrato)}
-      ${graficoGpuHtml(historicoGpu.get(), contrato)}
-    </div>
-    ${cartoes.length ? `<div class="status-grid">${cartoes.join('')}</div>` : '<div class="em-breve vidro"><div class="secao-titulo">Sem cartões</div><p>O motor não enviou nenhum bloco neste sample.</p></div>'}
+    ${cartoes.length ? grupoRecolhivel('Detalhes técnicos', `<div class="status-grid">${cartoes.join('')}</div>`, { aberto: detalhesTecnicosAbertos }) : '<div class="em-breve vidro"><div class="secao-titulo">Sem cartões</div><p>O motor não enviou nenhum bloco neste sample.</p></div>'}
     ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Último problema no feed:</strong> ${escaparHtml(erro)}</div>` : ''}
   `);
 }
@@ -1128,6 +1093,10 @@ function configurarInstalacaoPwa() {
 }
 
 function registrarEventos() {
+  // `toggle` não borbulha: captura na fase de captura para guardar o estado.
+  document.addEventListener('toggle', (evento) => {
+    if (evento.target.matches?.('.status-detalhes')) detalhesTecnicosAbertos = evento.target.open;
+  }, true);
   document.addEventListener('click', aoClicarAtalhos);
   document.addEventListener('pointerdown', aoPressionarAlca);
   document.addEventListener('submit', aoEnviarAtalho);
@@ -1175,6 +1144,7 @@ function registrarEventos() {
   el('composer-input').addEventListener('input', (evento) => rascunho.set(evento.target.value));
   el('composer-input').addEventListener('focus', () => focado.set(true));
   el('composer-input').addEventListener('blur', () => focado.set(false));
+  el('btn-mic').hidden = !reconhecedorDisponivel();
   el('btn-mic').addEventListener('click', alternarVoz);
   el('btn-parar').addEventListener('click', parar);
 
@@ -1219,7 +1189,7 @@ function registrarEventos() {
 const SECOES_VALIDAS = new Set(['monitor', 'atalhos', 'assistente', 'status', 'ajustes']);
 function aplicarHashInicial() {
   const hash = window.location.hash.replace('#', '');
-  if (SECOES_VALIDAS.has(hash)) secaoAtiva.set(hash);
+  if (SECOES_VALIDAS.has(hash)) secaoAtiva.set(secaoDaPlataforma(hash, ehMobile()));
 }
 
 function registrarAssinaturas() {
@@ -1230,7 +1200,7 @@ function registrarAssinaturas() {
     }
     atualizarTopbar();
     atualizarVisao();
-    if (secaoAtiva.get() !== 'monitor' && secaoAtiva.get() !== 'atalhos') pararMonitor();
+    if (!SECOES_GRADE.has(secaoAtiva.get())) pararMonitor();
     if (secaoAtiva.get() !== 'status') pararStatus();
   });
   backendAtivo.assinar(atualizarTopbar);
@@ -1250,14 +1220,12 @@ function registrarAssinaturas() {
   estadoAgente.assinar(atualizarTrabalho);
   rotuloTrabalho.assinar(atualizarTrabalho);
   rotuloProcessando.assinar(atualizarComposer);
-  contextoPct.assinar(atualizarContexto);
 
   estadoMonitor.assinar(renderMonitor);
   gradeMonitor.assinar(renderMonitor);
   erroMonitor.assinar(renderMonitor);
   progressoGrade.assinar(atualizarBarrasTimeGrid);
   backendAtivo.assinar(renderMonitor);
-  if (consultaMobile) consultaMobile.addEventListener('change', renderMonitor);
   atalhos.assinar(renderAtalhosDeck);
   gradeMonitor.assinar(renderAtalhosDeck);
 
@@ -1284,14 +1252,13 @@ function registrarAssinaturas() {
 registrarEventos();
 aplicarHashInicial();
 registrarAssinaturas();
-registrarRemoto();
+atualizarRemoto();
 iniciarControlesJanela();
 atualizarTopbar();
 atualizarVisao();
 renderMensagens();
 atualizarTrabalho();
 atualizarComposer();
-atualizarContexto();
 iniciarOrbs();
 aplicarMetalNoTexto(el('logo-metal'));
 configurarInstalacaoPwa();

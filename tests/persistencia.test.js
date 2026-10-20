@@ -3,11 +3,9 @@ import { beforeEach, describe, it } from 'node:test';
 
 import {
   carregarConversa,
-  carregarContexto,
   instalacaoVista,
   marcarInstalacaoVista,
   salvarConversa,
-  salvarContexto,
 } from '../imports/ui/persistencia.js';
 
 // Shim mínimo de localStorage pra rodar a lógica fora do navegador.
@@ -58,17 +56,7 @@ describe('persistência local da conversa', () => {
   it('sem armazenamento a leitura cai no padrão', () => {
     delete globalThis.localStorage;
     assert.equal(carregarConversa(), null);
-    assert.equal(carregarContexto(9), 9);
     salvarConversa([{ id: 1, papel: 'usuario', texto: 'Oi', hora: '10:00' }]);
-  });
-
-  it('persiste o contexto dentro dos limites', () => {
-    salvarContexto(40);
-    assert.equal(carregarContexto(9), 40);
-    salvarContexto(200);
-    assert.equal(carregarContexto(9), 96);
-    salvarContexto(-5);
-    assert.equal(carregarContexto(9), 0);
   });
 
   it('guarda o visto da instrução de instalar', () => {
