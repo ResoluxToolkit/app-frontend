@@ -195,7 +195,7 @@ export function assinarMonitorGrade() {
   estadoMonitor.set('pollando');
   const prazo = setTimeout(() => {
     if (!gradeMonitor.get() && !erroMonitor.get()) {
-      erroMonitor.set('sem_resposta: o motor não mandou a composição. O Arena pode estar fechado.');
+      erroMonitor.set('sem_resposta: o motor não mandou a composição em 8 s.');
       estadoMonitor.set('erro');
     }
   }, PRAZO_PRIMEIRA_GRADE_MS);

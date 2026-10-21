@@ -56,8 +56,9 @@ Navegador (bundle estático)
 - Composição: o mock não inventa grade (a de exemplo virou fixture de teste
   em `tests/fixtures/`); sem motor a aba mostra "Motor fora do ar". O monitor
   só assina depois da sonda e reinicia quando o backend muda; sem dado nem erro
-  do motor em 8 s, mostra `sem_resposta` (o motor atual não responde ao
-  `monitor.subscribe` com o Arena fechado).
+  do motor em 8 s, mostra `sem_resposta`. Sem grade, a aba lê o monitor do
+  sistema (`imports/ui/estadoArena.js`) para dizer se o Arena está aberto e com
+  o Webserver ligado; proposta do bloco `arena` em `docs/MONITOR-ARENA.md`.
 - Conversa: a thread vive em `localStorage` (`imports/ui/persistencia.js`) e
   sobrevive ao refresh. Com o daemon de pé, `GET /api/v1/conversa` +
   `assinarConversa` (WebSocket) sincronizam a thread entre dispositivos

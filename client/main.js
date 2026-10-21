@@ -32,6 +32,7 @@ import { juntarDitado, reconhecedorDisponivel } from '../imports/ui/ditado';
 import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
 import { iniciarPreloader } from '../imports/ui/preloader';
+import { estadoArena, mensagemArena } from '../imports/ui/estadoArena';
 import { abertoComoApp, extrairCodigo, lerQrAoVivo, lerQrDaImagem, podeLerAoVivo } from '../imports/ui/leitorQr';
 import { iniciarControlesJanela } from '../imports/ui/wco';
 import {
@@ -718,6 +719,9 @@ function iniciarMonitor() {
   // prendia a tela no mock (a grade falsa aparecia mesmo com o motor no
   // ar). A troca de backend reinicia a assinatura.
   if (!inscricaoMonitor && backendAtivo.get() !== 'sondando') inscricaoMonitor = assinarMonitorGrade();
+  // O monitor do sistema diz se o Arena está aberto e com o Webserver
+  // ligado; a aba Composição usa isso quando não há grade.
+  if (secaoAtiva.get() === 'monitor' && !inscricaoSistema) inscricaoSistema = assinarSistema();
   renderMonitor();
 }
 
@@ -805,6 +809,14 @@ function gradeCardHtml(grade, status) {
     </section>`;
 }
 
+// Sem grade: o que o monitor do sistema diz sobre o Arena (aberto?
+// Webserver ligado? em que porta?), com o erro do motor por baixo.
+function cardArena(erro) {
+  const { titulo, texto } = mensagemArena(estadoArena(contratoSistema.get()));
+  const detalhe = erro ? `<p class="nota-mock">Motor: ${escaparHtml(erro)}</p>` : '';
+  return `<div class="em-breve vidro"><div class="secao-titulo">${escaparHtml(titulo)}</div><p>${escaparHtml(texto)}</p>${detalhe}</div>`;
+}
+
 function renderMonitor() {
   if (secaoAtiva.get() !== 'monitor') return;
   const grade = gradeMonitor.get();
@@ -817,9 +829,7 @@ function renderMonitor() {
   if (!grade) {
     el('monitor-conteudo').innerHTML = backendAtivo.get() === 'mock' || erro?.startsWith('motor_indisponivel')
       ? '<div class="em-breve vidro"><div class="secao-titulo">Motor fora do ar</div><p>Sem o motor Resolux não há composição do Arena para mostrar. Abra o Resolux no Mac e recarregue.</p></div>'
-      : erro
-      ? `<div class="em-breve vidro"><div class="secao-titulo">Monitor indisponível</div><p><strong>${escaparHtml(erro)}</strong> Sem uma grade boa em memória para mostrar.</p></div>`
-      : `<div class="em-breve vidro"><div class="secao-titulo">Sondando o Arena…</div><p>Primeiro poll da grade ainda não voltou.</p></div>`;
+      : cardArena(erro);
     return;
   }
 
@@ -1482,11 +1492,15 @@ function registrarAssinaturas() {
     atualizarTopbar();
     atualizarVisao();
     if (!SECOES_GRADE.has(secaoAtiva.get())) pararMonitor();
-    if (secaoAtiva.get() !== 'status') pararStatus();
+    if (secaoAtiva.get() !== 'status' && secaoAtiva.get() !== 'monitor') pararStatus();
   });
   backendAtivo.assinar(atualizarTopbar);
   backendAtivo.assinar(sincronizarConversaRemota);
   backendAtivo.assinar(reiniciarMonitorAoTrocarBackend);
+  // Sem grade, a aba Composição acompanha o estado do Arena a cada amostra.
+  contratoSistema.assinar(() => {
+    if (secaoAtiva.get() === 'monitor' && !gradeMonitor.get()) renderMonitor();
+  });
   mensagens.assinar(renderMensagens);
   mensagens.assinar(renderConversas);
   backendAtivo.assinar(renderConversas);
