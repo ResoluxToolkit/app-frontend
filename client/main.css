@@ -3206,3 +3206,94 @@ button.cena-tecla:active {
     background: transparent;
     color: var(--texto-2);
 }
+
+/* Conversa em um lugar só: com o celular escrevendo, o composer dá lugar
+   a "Retomar conversa" e ao switch que desconecta o remoto. */
+.retomar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.retomar[hidden] {
+    display: none;
+}
+
+.retomar-botao {
+    flex: 1;
+    min-height: 52px;
+    border: 1px solid var(--marca-border);
+    border-radius: 999px;
+    background: var(--marca-soft);
+    color: var(--marca);
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.retomar-botao:hover {
+    background: var(--marca-border);
+}
+
+.retomar-switch {
+    position: relative;
+    display: inline-flex;
+    cursor: pointer;
+}
+
+.retomar-switch[hidden] {
+    display: none;
+}
+
+.retomar-switch input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.retomar-trilho {
+    width: 64px;
+    height: 36px;
+    border-radius: 999px;
+    background: var(--vidro-forte);
+    border: 1px solid var(--borda-vidro);
+    display: flex;
+    align-items: center;
+    padding: 3px;
+    transition: background 0.2s ease;
+}
+
+.retomar-bolinha {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--texto);
+    transition: transform 0.2s ease;
+}
+
+.retomar-switch input:checked + .retomar-trilho {
+    background: var(--perigo);
+    border-color: var(--perigo-border);
+}
+
+.retomar-switch input:checked + .retomar-trilho .retomar-bolinha {
+    transform: translateX(28px);
+}
+
+.retomar-switch input:focus-visible + .retomar-trilho {
+    outline: 2px solid var(--marca);
+    outline-offset: 2px;
+}
+
+.retomar-aviso {
+    margin: 8px 0 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--texto-3);
+}
+
+.retomar-aviso[hidden] {
+    display: none;
+}

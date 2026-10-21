@@ -197,6 +197,10 @@ export class ResoluxDaemon {
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: 'conversa.subscribe', id }));
+        // Celular pareado assume a escrita ao (re)conectar.
+        if (callbacks.assumirAoConectar) {
+          ws.send(JSON.stringify({ type: 'conversa.assumir', id: `assumir-${id}` }));
+        }
       };
 
       ws.onmessage = (evento) => {
@@ -208,6 +212,11 @@ export class ResoluxDaemon {
         }
         if (mensagem.type === 'conversa.update') {
           callbacks.onTurnos?.(mensagem.payload?.turnos || []);
+        }
+        // Proposta (docs/CONVERSA-UM-LUGAR.md): quem escreve na conversa.
+        // Motor sem a mensagem nunca manda, e a UI segue como hoje.
+        if (mensagem.type === 'conversa.controle') {
+          callbacks.onControle?.(mensagem.payload || {});
         }
       };
 
@@ -227,7 +236,19 @@ export class ResoluxDaemon {
         socket?.close();
         socket = null;
       },
+      // Pede a escrita da conversa para esta conexão (proposta).
+      assumir() {
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'conversa.assumir', id: `assumir-${Date.now()}` }));
+        }
+      },
     };
+  }
+
+  // Desconecta um aparelho pareado (proposta em docs/PAREAMENTO.md).
+  async revogarAparelho(id) {
+    const res = await this.pedir(`/api/v1/aparelhos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!res.ok) throw await lerEnvelopeErro(res);
   }
 
   // Monitor do Arena — ASSINATURA via WS, não poll da UI. O daemon é quem

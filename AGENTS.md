@@ -241,6 +241,10 @@ da sessão.
   Motor antigo sem a rota (`404`): o painel avisa que qualquer aparelho entra.
   Sem token, o celular vê só a tela de bloqueio, que lê o QR por foto
   (`imports/ui/leitorQr.js`, jsQR carregado sob demanda) para parear o PWA.
+- Conversa em um lugar só: quando um celular pareado assume a conversa, o
+  desktop fica só lendo ("Retomar conversa" + switch que desconecta o remoto).
+  Proposta de contrato em `docs/CONVERSA-UM-LUGAR.md`; sem a mensagem
+  `conversa.controle` do motor, nada muda.
 - Dev pelo Tailscale Serve: `https://mac.tail17794.ts.net:8443` → Vite em
   `localhost:3003`. Não usar 3003 (o `tailscaled` ocupa a porta no IP do
   tailnet e o Vite pula para a 3004) nem 1980 (o motor em release escuta nela

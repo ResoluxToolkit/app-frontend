@@ -223,3 +223,35 @@ export function assinarMonitorGrade() {
     },
   });
 }
+
+// ------------------------------------------------------------
+// Conversa em um lugar só (proposta, docs/CONVERSA-UM-LUGAR.md): quando
+// um celular assume a conversa, o desktop fica só lendo, e vice-versa.
+// `aqui`: 'escrita' | 'leitura'; `remotos`: aparelhos pareados ligados.
+// Sem a mensagem do motor, fica sempre { escrita, [] } e nada muda.
+// ------------------------------------------------------------
+
+export const controleConversa = new Sinal({ aqui: 'escrita', remotos: [] });
+
+export function normalizarControle(payload) {
+  const aqui = payload?.aqui === 'leitura' ? 'leitura' : 'escrita';
+  const remotos = Array.isArray(payload?.remotos)
+    ? payload.remotos.filter((r) => r && r.id).map((r) => ({ id: String(r.id), nome: String(r.nome || 'Celular') }))
+    : [];
+  return { aqui, remotos };
+}
+
+export function aplicarControle(payload) {
+  controleConversa.set(normalizarControle(payload));
+}
+
+export async function desconectarRemotos() {
+  const { remotos } = controleConversa.get();
+  await Promise.all(remotos.map((r) => obterBackend().revogarAparelho(r.id)));
+}
+
+// Este aparelho é um celular pareado (tem token): ao abrir a conversa,
+// ele assume a escrita, e o desktop passa a só ler.
+export function souRemoto() {
+  return Boolean(lerToken());
+}

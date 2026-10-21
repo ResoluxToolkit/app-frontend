@@ -229,8 +229,37 @@ export class MockDaemon {
 
   // Mesma interface do daemon: sem WS de conversa no mock — o mock é
   // local, não há outro device para espelhar. Thread segue no localStorage.
+  // Para ver a trava sem o motor novo: `localStorage['resolux-simular-remoto'] = '1'`
+  // faz o mock agir como se um celular estivesse com a conversa.
   assinarConversa(callbacks = {}) {
-    return { cancelar() {} };
+    let simular = false;
+    try {
+      simular = globalThis.localStorage?.getItem('resolux-simular-remoto') === '1';
+    } catch (_) {
+      simular = false;
+    }
+    if (!simular) return { cancelar() {}, assumir() {} };
+    this.controleSimulado = { aqui: 'leitura', remotos: [{ id: 'simulado', nome: 'iPhone (simulado)' }] };
+    this.aoControleSimulado = callbacks.onControle;
+    callbacks.onControle?.({ ...this.controleSimulado });
+    return {
+      cancelar: () => {
+        this.aoControleSimulado = null;
+      },
+      assumir: () => {
+        this.controleSimulado = { ...this.controleSimulado, aqui: 'escrita' };
+        this.aoControleSimulado?.({ ...this.controleSimulado });
+      },
+    };
+  }
+
+  async revogarAparelho(id) {
+    if (!this.controleSimulado) return;
+    this.controleSimulado = {
+      ...this.controleSimulado,
+      remotos: this.controleSimulado.remotos.filter((r) => r.id !== id),
+    };
+    this.aoControleSimulado?.({ ...this.controleSimulado });
   }
 
   // Mesma interface do daemon real: a UI assina o monitor e recebe os

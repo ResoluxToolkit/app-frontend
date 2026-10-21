@@ -62,6 +62,10 @@ import {
   obterPareamento,
   estadoPareamento,
   acessoPainel,
+  controleConversa,
+  aplicarControle,
+  desconectarRemotos,
+  souRemoto,
   parearComCodigo,
   concluirPareamentoDaUrl,
 } from '../imports/api';
@@ -590,6 +594,8 @@ function garantirMensagemTurno() {
 }
 
 function enviar(texto) {
+  // Com outro aparelho conduzindo a conversa, daqui só se lê.
+  if (controleConversa.get().aqui === 'leitura') return;
   if (processando.get()) return;
   if (turnoAtual) {
     turnoAtual.cancelar();
@@ -1339,10 +1345,14 @@ function renderAjustes() {
 let inscricaoConversa = null;
 
 async function sincronizarConversaRemota() {
+  if (backendAtivo.get() === 'sondando') return;
+  inscricaoConversa?.cancelar();
+  inscricaoConversa = obterBackend().assinarConversa({
+    onTurnos: (turnos) => incorporarTurnos(turnos),
+    onControle: (payload) => aplicarControle(payload),
+    assumirAoConectar: souRemoto(),
+  });
   if (backendAtivo.get() === 'daemon') {
-    inscricaoConversa ||= obterBackend().assinarConversa({
-      onTurnos: (turnos) => incorporarTurnos(turnos),
-    });
 
     try {
       const { turnos } = await obterBackend().obterConversa();
@@ -1350,9 +1360,46 @@ async function sincronizarConversaRemota() {
     } catch (_) {
       // A assinatura WebSocket segue tentando mesmo sem leitura inicial.
     }
-  } else {
-    inscricaoConversa?.cancelar();
-    inscricaoConversa = null;
+  }
+}
+
+// Conversa em um lugar só: lendo daqui, o composer some e entram
+// "Retomar conversa" e o switch do celular (só no Mac: o celular não
+// desconecta ninguém).
+function renderControle() {
+  const { aqui, remotos } = controleConversa.get();
+  const lendo = aqui === 'leitura';
+  el('beam-wrap').hidden = lendo;
+  el('composer-retomar').hidden = !lendo;
+  const comSwitch = lendo && !souRemoto() && remotos.length > 0;
+  el('retomar-remoto').hidden = !comSwitch;
+  el('switch-remoto').checked = remotos.length > 0;
+  const aviso = el('retomar-aviso');
+  aviso.hidden = !lendo;
+  if (lendo) {
+    aviso.textContent = souRemoto()
+      ? 'A conversa está sendo conduzida no Mac.'
+      : `${remotos.map((r) => r.nome).join(', ') || 'Outro aparelho'} está com a conversa. Daqui você só acompanha.`;
+  }
+}
+
+async function aoTrocarSwitchRemoto(evento) {
+  if (evento.target.checked) return; // ligar de novo é parear pelo QR
+  const { remotos } = controleConversa.get();
+  const nomes = remotos.map((r) => r.nome).join(', ') || 'o celular';
+  if (!window.confirm(`Desconectar ${nomes}? Para voltar, será preciso ler o QR de novo.`)) {
+    evento.target.checked = true;
+    return;
+  }
+  try {
+    await desconectarRemotos();
+    inscricaoConversa?.assumir();
+  } catch (e) {
+    evento.target.checked = true;
+    el('retomar-aviso').textContent =
+      e?.codigo === 'not_found' || e?.codigo === 'http_404' || e?.codigo === 'http_405'
+        ? 'Este motor ainda não sabe desconectar aparelhos.'
+        : `Não deu para desconectar: ${e?.message || e}`;
   }
 }
 
@@ -1475,6 +1522,9 @@ function registrarAssinaturas() {
   });
   backendAtivo.assinar(atualizarTopbar);
   backendAtivo.assinar(sincronizarConversaRemota);
+  controleConversa.assinar(renderControle);
+  el('btn-retomar').addEventListener('click', () => inscricaoConversa?.assumir());
+  el('switch-remoto').addEventListener('change', aoTrocarSwitchRemoto);
   mensagens.assinar(renderMensagens);
   mensagens.assinar(renderConversas);
   backendAtivo.assinar(renderConversas);
