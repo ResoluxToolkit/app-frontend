@@ -235,9 +235,9 @@ function tickRemoto() {
   }
   const url = urlPareamento(origem, pareamentoAtual.codigo);
   if (el('remoto-url')?.href !== url) {
-    renderRemoto(`Leia no celular · novo código em ${mmss(restantes)}`, url);
+    renderRemoto(`Leia com a Câmera do celular · novo código em ${mmss(restantes)}`, url);
   } else {
-    el('remoto-estado').textContent = `Leia no celular · novo código em ${mmss(restantes)}`;
+    el('remoto-estado').textContent = `Leia com a Câmera do celular · novo código em ${mmss(restantes)}`;
   }
 }
 
@@ -268,7 +268,7 @@ function renderBloqueio() {
   el('bloqueio-texto').textContent =
     motivo === 'recusado' || motivo === 'limitado' || motivo === 'sem_resposta'
       ? mensagemAparelho()
-      : 'Abra o painel no Mac e leia o QR do bloco Remote.';
+      : 'Leia o QR do bloco Remote, no Mac, com o app Câmera: ele abre direto no navegador. O leitor de código da Central de Controle abre uma janela à parte, e o pareamento fica preso nela.';
 }
 
 function iniciarRemoto() {
