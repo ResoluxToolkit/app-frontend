@@ -55,5 +55,6 @@ lê o QR de novo.
 
 ## Como ver a tela sem o motor novo
 
-No mock (sem motor), `localStorage['resolux-simular-remoto'] = '1'` e
-recarregar: o mock age como se um celular estivesse com a conversa.
+Com ou sem o motor, `localStorage['resolux-simular-remoto'] = '1'` e
+recarregar: o controle passa a vir de um celular simulado (a conversa segue do
+motor real, se ele estiver no ar).

@@ -66,6 +66,8 @@ import {
   aplicarControle,
   desconectarRemotos,
   souRemoto,
+  simulandoRemoto,
+  backendDoControle,
   parearComCodigo,
   concluirPareamentoDaUrl,
 } from '../imports/api';
@@ -1343,6 +1345,7 @@ function renderAjustes() {
 // snapshot do disco e recebe conversa.update a cada turno/limpeza, em
 // qualquer device. No mock não há outro device: assinatura no-op.
 let inscricaoConversa = null;
+let controleSimulado = null;
 
 async function sincronizarConversaRemota() {
   if (backendAtivo.get() === 'sondando') return;
@@ -1352,6 +1355,11 @@ async function sincronizarConversaRemota() {
     onControle: (payload) => aplicarControle(payload),
     assumirAoConectar: souRemoto(),
   });
+  // Simulação: o controle vem do mock, a conversa segue do motor real.
+  controleSimulado?.cancelar();
+  controleSimulado = simulandoRemoto()
+    ? backendDoControle().assinarConversa({ onControle: (payload) => aplicarControle(payload) })
+    : null;
   if (backendAtivo.get() === 'daemon') {
 
     try {
@@ -1393,7 +1401,7 @@ async function aoTrocarSwitchRemoto(evento) {
   }
   try {
     await desconectarRemotos();
-    inscricaoConversa?.assumir();
+    (controleSimulado || inscricaoConversa)?.assumir();
   } catch (e) {
     evento.target.checked = true;
     el('retomar-aviso').textContent =
@@ -1523,7 +1531,7 @@ function registrarAssinaturas() {
   backendAtivo.assinar(atualizarTopbar);
   backendAtivo.assinar(sincronizarConversaRemota);
   controleConversa.assinar(renderControle);
-  el('btn-retomar').addEventListener('click', () => inscricaoConversa?.assumir());
+  el('btn-retomar').addEventListener('click', () => (controleSimulado || inscricaoConversa)?.assumir());
   el('switch-remoto').addEventListener('change', aoTrocarSwitchRemoto);
   mensagens.assinar(renderMensagens);
   mensagens.assinar(renderConversas);

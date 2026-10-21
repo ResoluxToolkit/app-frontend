@@ -245,9 +245,24 @@ export function aplicarControle(payload) {
   controleConversa.set(normalizarControle(payload));
 }
 
+// Simulação para testar a tela antes do motor novo, valendo também com
+// o motor real no ar: `localStorage['resolux-simular-remoto'] = '1'`.
+export function simulandoRemoto() {
+  try {
+    return globalThis.localStorage?.getItem('resolux-simular-remoto') === '1';
+  } catch (_) {
+    return false;
+  }
+}
+
+// Fonte do controle da conversa: o mock simulado ou o backend escolhido.
+export function backendDoControle() {
+  return simulandoRemoto() ? mock : obterBackend();
+}
+
 export async function desconectarRemotos() {
   const { remotos } = controleConversa.get();
-  await Promise.all(remotos.map((r) => obterBackend().revogarAparelho(r.id)));
+  await Promise.all(remotos.map((r) => backendDoControle().revogarAparelho(r.id)));
 }
 
 // Este aparelho é um celular pareado (tem token): ao abrir a conversa,
