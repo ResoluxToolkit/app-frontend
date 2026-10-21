@@ -199,7 +199,15 @@ function renderRemoto(estadoTexto, url = '') {
   desenharQr(canvas, gerarMatrizQr(url), { fundo: null, modulo: laranja });
 }
 
+// O motor só entrega código ao próprio Mac. Depois do primeiro 403 este
+// aparelho não pergunta de novo (cada pergunta vira erro no console).
+let foraDoMac = false;
+
 async function atualizarRemoto() {
+  if (foraDoMac) {
+    renderRemoto(mensagemAparelho() || 'O QR de pareamento aparece no painel do Mac.');
+    return;
+  }
   if (buscandoPareamento) return;
   buscandoPareamento = true;
   try {
@@ -209,6 +217,7 @@ async function atualizarRemoto() {
     // Nunca desenhar QR sem código: sem a rota, sem motor ou fora do Mac,
     // o bloco só explica onde o QR aparece.
     if (e.codigo === 'forbidden') {
+      foraDoMac = true;
       renderRemoto(mensagemAparelho() || 'O QR de pareamento aparece no painel do Mac.');
     } else if (e.codigo === 'not_found') {
       renderRemoto('Este motor não tem pareamento: qualquer aparelho na rede entra. Atualize a engine.');
