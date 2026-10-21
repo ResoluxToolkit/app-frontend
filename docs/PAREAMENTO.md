@@ -101,7 +101,7 @@ cliente já apaga o token e volta para a tela de bloqueio nesse caso.
 Status: **proposta do cliente**, ainda fora do contrato do motor.
 
 O mobile em produção entra por HTTPS via Tailscale Serve (ex.:
-`https://mac.tail17794.ts.net:3003`), que dá contexto seguro (câmera ao vivo
+`https://mac.tail17794.ts.net:1980`), que dá contexto seguro (câmera ao vivo
 no leitor de QR). O contrato hoje recusa no handshake WS toda origem com ponto
 que não termine em `.local`, então o nome do MagicDNS (`*.ts.net`) volta `400`
 e o celular fica sem WS. Medido: `Origin: https://mac.tail17794.ts.net:3003`
