@@ -272,28 +272,35 @@ function renderBloqueio() {
   const comoChegar = abertoComoApp()
     ? 'Toque em "Ler QR com a câmera" e fotografe o QR do bloco Remote, no Mac.'
     : 'Leia o QR do bloco Remote, no Mac, com o app Câmera (abre direto no navegador) ou toque em "Ler QR com a câmera".';
-  el('bloqueio-texto').textContent = leituraFalhou
+  el('bloqueio-texto').textContent = lendoQr
+    ? 'Procurando o QR na foto…'
+    : leituraFalhou
     ? leituraFalhou
     : motivo === 'recusado' || motivo === 'limitado' || motivo === 'sem_resposta' || motivo === 'pareando'
       ? mensagemAparelho()
       : comoChegar;
-  el('bloqueio-ler').hidden = motivo === 'pareando';
+  el('bloqueio-ler').hidden = motivo === 'pareando' || lendoQr;
 }
 
 // Foto do QR tirada pelo botão da trava: decodifica, pareia e, se der
 // certo, refaz a sonda para o painel nascer com o token novo.
 let leituraFalhou = '';
+let lendoQr = false;
 
 async function lerQrDaTrava(evento) {
   const arquivo = evento.target.files?.[0];
   evento.target.value = '';
   if (!arquivo) return;
   leituraFalhou = '';
+  lendoQr = true;
+  renderBloqueio();
   let codigo = '';
   try {
     codigo = extrairCodigo(await lerQrDaImagem(arquivo));
   } catch (_) {
     codigo = '';
+  } finally {
+    lendoQr = false;
   }
   if (!codigo) {
     leituraFalhou = 'Não achei o QR do Resolux na foto. Chegue mais perto da tela do Mac e tente de novo.';

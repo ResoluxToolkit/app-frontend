@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import jsQR from 'jsqr';
 
-import { abertoComoApp, extrairCodigo } from '../imports/ui/leitorQr.js';
+import { abertoComoApp, extrairCodigo, recortesCandidatos } from '../imports/ui/leitorQr.js';
 import { gerarMatrizQr, urlPareamento } from '../imports/ui/remoto.js';
 
 // Desenha a matriz como o painel: módulos laranja sobre fundo escuro.
@@ -43,5 +43,16 @@ describe('leitor de QR do PWA', () => {
     assert.equal(abertoComoApp({ navigator: { standalone: true } }), true);
     assert.equal(abertoComoApp({ navigator: {}, matchMedia: () => ({ matches: true }) }), true);
     assert.equal(abertoComoApp({ navigator: {}, matchMedia: () => ({ matches: false }) }), false);
+  });
+});
+
+describe('recortes do leitor', () => {
+  it('começa pela foto inteira e pelo centro, e todo recorte cabe na foto', () => {
+    const recortes = recortesCandidatos(3024, 4032);
+    assert.deepEqual(recortes[0], { x: 0, y: 0, w: 3024, h: 4032, lado: 800 });
+    assert.ok(recortes.length >= 20);
+    for (const r of recortes) {
+      assert.ok(r.x >= 0 && r.y >= 0 && r.x + r.w <= 3024 + 1e-6 && r.y + r.h <= 4032 + 1e-6);
+    }
   });
 });
