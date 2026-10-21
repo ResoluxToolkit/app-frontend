@@ -32,6 +32,7 @@ import { juntarDitado, reconhecedorDisponivel } from '../imports/ui/ditado';
 import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
 import { iniciarPreloader } from '../imports/ui/preloader';
+import { abertoComoApp, extrairCodigo, lerQrAoVivo, lerQrDaImagem, podeLerAoVivo } from '../imports/ui/leitorQr';
 import { iniciarControlesJanela } from '../imports/ui/wco';
 import {
   obterBackend,
@@ -60,6 +61,8 @@ import {
   cabecalhosAcesso,
   obterPareamento,
   estadoPareamento,
+  acessoPainel,
+  parearComCodigo,
   concluirPareamentoDaUrl,
 } from '../imports/api';
 import {
@@ -175,6 +178,7 @@ function mensagemAparelho() {
   if (estado === 'pareado') return 'Este aparelho está pareado.';
   if (estado === 'recusado') return 'Código vencido ou inválido. Leia o QR de novo no Mac.';
   if (estado === 'limitado') return 'Muitas tentativas. Espere um minuto e leia o QR de novo.';
+  if (estado === 'sem_resposta') return 'O Mac não respondeu. Leia o QR de novo.';
   if (estado === 'pareando') return 'Pareando com o Mac…';
   return '';
 }
@@ -195,21 +199,30 @@ function renderRemoto(estadoTexto, url = '') {
   desenharQr(canvas, gerarMatrizQr(url), { fundo: null, modulo: laranja });
 }
 
+// O motor só entrega código ao próprio Mac. Depois do primeiro 403 este
+// aparelho não pergunta de novo (cada pergunta vira erro no console).
+let foraDoMac = false;
+
 async function atualizarRemoto() {
+  if (foraDoMac) {
+    renderRemoto(mensagemAparelho() || 'O QR de pareamento aparece no painel do Mac.');
+    return;
+  }
   if (buscandoPareamento) return;
   buscandoPareamento = true;
   try {
     pareamentoAtual = await obterPareamento();
   } catch (e) {
     pareamentoAtual = null;
-    const origem = urlRemota();
-    if (e.codigo === 'not_found' && origem) {
-      // Motor ainda sem a rota de pareamento: QR só com o endereço, e a
-      // tela diz que a porta está aberta, sem fingir proteção.
-      renderRemoto('Motor ainda não valida código: o QR abre sem pareamento.', origem);
-    } else {
-      // Celular (o motor só gera código para o próprio Mac) ou motor fora.
+    // Nunca desenhar QR sem código: sem a rota, sem motor ou fora do Mac,
+    // o bloco só explica onde o QR aparece.
+    if (e.codigo === 'forbidden') {
+      foraDoMac = true;
       renderRemoto(mensagemAparelho() || 'O QR de pareamento aparece no painel do Mac.');
+    } else if (e.codigo === 'not_found') {
+      renderRemoto('Este motor não tem pareamento: qualquer aparelho na rede entra. Atualize a engine.');
+    } else {
+      renderRemoto('Sem o motor no ar, não há código de pareamento.');
     }
     return;
   } finally {
@@ -226,24 +239,209 @@ function tickRemoto() {
     atualizarRemoto();
     return;
   }
-  const origem = pareamentoAtual.base || urlRemota();
+  // Aberto em HTTPS (Tailscale Serve), o QR leva a própria origem: é
+  // nela que o celular consegue ler o QR ao vivo. Senão, a base do motor.
+  const segura = location.protocol === 'https:' ? urlRemota() : '';
+  const origem = segura || pareamentoAtual.base || urlRemota();
   if (!origem) {
     renderRemoto('Abra pelo endereço de rede para gerar o QR.');
     return;
   }
   const url = urlPareamento(origem, pareamentoAtual.codigo);
   if (el('remoto-url')?.href !== url) {
-    renderRemoto(`Leia no celular · novo código em ${mmss(restantes)}`, url);
+    renderRemoto(`Leia com a Câmera do celular · novo código em ${mmss(restantes)}`, url);
   } else {
-    el('remoto-estado').textContent = `Leia no celular · novo código em ${mmss(restantes)}`;
+    el('remoto-estado').textContent = `Leia com a Câmera do celular · novo código em ${mmss(restantes)}`;
   }
 }
 
+// O código é de uso único: quando um celular pareia, o motor gira o
+// código no próximo GET. Sem evento para isso no contrato, o Mac
+// confere a cada poucos segundos (só com a aba visível) e troca o QR.
+const CONFERIR_CODIGO_MS = 5000;
+
+function conferirCodigo() {
+  if (!pareamentoAtual || document.hidden) return;
+  atualizarRemoto();
+}
+
+// Trava do painel inteiro, acima de tudo menos o preloader.
+function renderBloqueio() {
+  const caixa = el('bloqueio');
+  if (!caixa) return;
+  const acesso = acessoPainel.get();
+  caixa.hidden = acesso === 'liberado' || acesso === 'verificando';
+  if (caixa.hidden) return;
+  if (acesso === 'motor_fora') {
+    el('bloqueio-titulo').textContent = 'O Mac não está respondendo';
+    el('bloqueio-texto').textContent = 'Confira se o Resolux está aberto no Mac e recarregue esta página.';
+    return;
+  }
+  el('bloqueio-titulo').textContent = 'Este aparelho não está pareado';
+  const motivo = estadoPareamento.get();
+  // No app instalado o caminho é fotografar o QR daqui mesmo: ler pela
+  // Câmera abriria o Safari, que guarda o token num lugar à parte.
+  const aoVivo = podeLerAoVivo();
+  const comoChegar = aoVivo
+    ? 'Toque em "Ler QR com a câmera" e aponte para o QR do bloco Remote, no Mac.'
+    : abertoComoApp()
+    ? 'Toque em "Fotografar o QR", tire a foto do QR do bloco Remote, no Mac, e confirme. A câmera não reconhece o QR sozinha: quem lê é o app, depois da foto.'
+    : 'Leia o QR do bloco Remote, no Mac, com o app Câmera (abre direto no navegador) ou toque em "Fotografar o QR".';
+  el('bloqueio-texto').textContent = lendoQr
+    ? 'Procurando o QR na foto…'
+    : leituraFalhou
+    ? leituraFalhou
+    : motivo === 'recusado' || motivo === 'limitado' || motivo === 'sem_resposta' || motivo === 'pareando'
+      ? mensagemAparelho()
+      : comoChegar;
+  const ocupado = motivo === 'pareando' || lendoQr || Boolean(leitorAoVivo);
+  // Em HTTPS a câmera lê ao vivo; a foto fica de reserva só em HTTP.
+  el('bloqueio-aovivo').hidden = ocupado || !aoVivo;
+  el('bloqueio-ler').hidden = ocupado || aoVivo;
+  el('bloqueio-video').hidden = !leitorAoVivo;
+}
+
+// Foto do QR tirada pelo botão da trava: decodifica, pareia e, se der
+// certo, refaz a sonda para o painel nascer com o token novo.
+let leituraFalhou = '';
+let lendoQr = false;
+let leitorAoVivo = null; // { parar() } enquanto a câmera estiver aberta
+
+async function concluirLeitura(texto) {
+  const codigo = extrairCodigo(texto);
+  if (!codigo) {
+    rastro(`QR lido, mas não é do Resolux: ${texto.slice(0, 40)}`);
+    leituraFalhou = 'Esse QR não é o do Resolux. Aponte para o QR do bloco Remote, no Mac.';
+    renderBloqueio();
+    return;
+  }
+  rastro('QR do Resolux lido');
+  if (await parearComCodigo(codigo)) sondarBackend();
+}
+
+async function abrirLeitorAoVivo() {
+  leituraFalhou = '';
+  rastro('abrindo a câmera ao vivo');
+  try {
+    leitorAoVivo = { parar() {} };
+    renderBloqueio();
+    leitorAoVivo = await lerQrAoVivo(el('bloqueio-camera-video'), (texto) => {
+      leitorAoVivo = null;
+      renderBloqueio();
+      concluirLeitura(texto);
+    });
+    rastro('procurando o QR no vídeo');
+  } catch (e) {
+    leitorAoVivo = null;
+    rastro(`câmera ao vivo falhou: ${e?.name || ''} ${e?.message || e}`);
+    leituraFalhou =
+      e?.name === 'NotAllowedError'
+        ? 'Sem permissão para a câmera. Libere nos ajustes do navegador e tente de novo.'
+        : 'Não consegui abrir a câmera ao vivo.';
+    renderBloqueio();
+  }
+}
+
+function fecharLeitorAoVivo() {
+  leitorAoVivo?.parar();
+  leitorAoVivo = null;
+  rastro('câmera fechada');
+  renderBloqueio();
+}
+
+// Rastro da leitura na própria tela (e no sessionStorage, para sobreviver
+// se o iOS recarregar o PWA ao voltar da câmera): sem console no
+// iPhone, é o que diz em que passo a leitura parou.
+const CHAVE_RASTRO = 'resolux-leitor-qr';
+
+function rastro(texto) {
+  const linha = `${new Date().toLocaleTimeString()} · ${texto}`;
+  try {
+    sessionStorage.setItem(CHAVE_RASTRO, linha);
+  } catch (_) {
+    // sem storage: fica só na tela
+  }
+  const diag = el('bloqueio-diag');
+  if (diag) diag.textContent = linha;
+}
+
+function rastroAnterior() {
+  let linha = '';
+  try {
+    linha = sessionStorage.getItem(CHAVE_RASTRO) || '';
+  } catch (_) {
+    linha = '';
+  }
+  if (!linha) return;
+  const diag = el('bloqueio-diag');
+  if (diag) {
+    diag.textContent = linha.includes('abrindo a câmera')
+      ? `${linha} → a página recarregou ao voltar da câmera`
+      : linha;
+  }
+}
+
+async function lerQrDaTrava(evento) {
+  const entrada = evento.target;
+  const arquivo = entrada.files?.[0];
+  if (!arquivo) {
+    rastro('voltou da câmera sem foto');
+    return;
+  }
+  rastro(`foto recebida: ${arquivo.type || 'sem tipo'}, ${Math.round(arquivo.size / 1024)} KB`);
+  leituraFalhou = '';
+  lendoQr = true;
+  renderBloqueio();
+  let codigo = '';
+  let falha = '';
+  const t0 = performance.now();
+  try {
+    const texto = await lerQrDaImagem(arquivo, (passo) => rastro(passo));
+    codigo = extrairCodigo(texto);
+    const ms = Math.round(performance.now() - t0);
+    rastro(texto ? `QR lido em ${ms} ms: ${codigo ? 'código do Resolux' : texto.slice(0, 40)}` : `nenhum QR na foto (${ms} ms)`);
+  } catch (e) {
+    rastro(`erro: ${e?.message || e}`);
+    console.error('[leitor QR]', e);
+    falha =
+      e?.etapa === 'leitor'
+        ? 'Não consegui carregar o leitor de QR. Recarregue a página e tente de novo.'
+        : e?.etapa === 'foto'
+          ? 'Não consegui abrir a foto. Tente tirar outra.'
+          : `Erro ao ler a foto: ${e?.message || e}`;
+  } finally {
+    lendoQr = false;
+    // Só limpa depois de ler: no Safari, zerar o input antes pode
+    // invalidar o arquivo que acabou de chegar.
+    entrada.value = '';
+  }
+  if (falha) {
+    leituraFalhou = falha;
+    renderBloqueio();
+    return;
+  }
+  if (!codigo) {
+    leituraFalhou = 'Não achei o QR do Resolux na foto. Chegue mais perto da tela do Mac e tente de novo.';
+    renderBloqueio();
+    return;
+  }
+  if (await parearComCodigo(codigo)) sondarBackend();
+}
+
 function iniciarRemoto() {
+  el('bloqueio-camera')?.addEventListener('change', lerQrDaTrava);
+  el('bloqueio-aovivo')?.addEventListener('click', abrirLeitorAoVivo);
+  el('bloqueio-cancelar')?.addEventListener('click', fecharLeitorAoVivo);
+  el('bloqueio-camera')?.addEventListener('click', () => rastro('abrindo a câmera'));
+  rastroAnterior();
+  acessoPainel.assinar(renderBloqueio);
+  estadoPareamento.assinar(renderBloqueio);
   backendAtivo.assinar((valor) => {
     if (valor !== 'sondando') atualizarRemoto();
   });
+  estadoPareamento.assinar(() => atualizarRemoto());
   setInterval(tickRemoto, 1000);
+  setInterval(conferirCodigo, CONFERIR_CODIGO_MS);
 }
 
 // ------------------------------------------------------------

@@ -11,6 +11,9 @@ importers:
       border-beam:
         specifier: ^1.4.1
         version: 1.4.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      jsqr:
+        specifier: ^1.4.0
+        version: 1.4.0
       metal-fx:
         specifier: ^2.0.11
         version: 2.0.11(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -356,6 +359,9 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
+  jsqr@1.4.0:
+    resolution: {integrity: sha512-dxLob7q65Xg2DvstYkRpkYtmKm2sPJ9oFhrhmudT1dZvNFFTlroai3AWSpLey/w5vMcLBXRgOJsbXpdN9HzU/A==}
+
   metal-fx@2.0.11:
     resolution: {integrity: sha512-BdAdXXmJmqVbPxwjb3mN5TmS9r1+fde4RhGdK6In3ktT53/oLNFIwM2idRxR9KmVCa+7Yod1i0tR9nljsfLH1g==}
     peerDependencies:
@@ -654,6 +660,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  jsqr@1.4.0: {}
 
   metal-fx@2.0.11(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
     dependencies:

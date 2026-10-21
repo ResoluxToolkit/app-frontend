@@ -9,7 +9,8 @@ import {
   urlPareamento,
   urlRemota,
 } from '../imports/ui/remoto.js';
-import { comToken } from '../imports/api/acesso.js';
+import { aoEsquecerToken, comToken, esquecerToken } from '../imports/api/acesso.js';
+import { ResoluxDaemon } from '../imports/api/client.js';
 import { MockDaemon, VALIDADE_PAREAMENTO_S } from '../imports/api/mock.js';
 
 const paraHex = (bytes) => [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -110,5 +111,27 @@ describe('pareamento do celular', () => {
     const { token } = await mock.parear(depois.codigo, t0 + VALIDADE_PAREAMENTO_S * 1000);
     assert.ok(token);
     await assert.rejects(mock.parear(depois.codigo, t0), { codigo: 'pairing_invalid' });
+  });
+});
+
+describe('follow-ups do pareamento', () => {
+  it('POST de pareamento sem resposta vira sem_resposta, sem travar o boot', async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = () => Promise.reject(new Error('rede caiu'));
+    try {
+      const daemon = new ResoluxDaemon({ base: 'http://x', wsUrl: 'ws://x' });
+      await assert.rejects(daemon.parear('abc'), { codigo: 'sem_resposta' });
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
+  it('apagar o token avisa quem ouve (a UI volta para "nenhum")', () => {
+    let avisos = 0;
+    const parar = aoEsquecerToken(() => { avisos += 1; });
+    esquecerToken();
+    parar();
+    esquecerToken();
+    assert.equal(avisos, 1);
   });
 });

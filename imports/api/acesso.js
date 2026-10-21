@@ -25,8 +25,17 @@ export function salvarToken(token) {
   if (token) armazenamento()?.setItem(CHAVE_TOKEN, token);
 }
 
+const aoEsquecer = new Set();
+
+// Avisa a UI quando o motor recusou o token (401) e ele foi apagado.
+export function aoEsquecerToken(callback) {
+  aoEsquecer.add(callback);
+  return () => aoEsquecer.delete(callback);
+}
+
 export function esquecerToken() {
   armazenamento()?.removeItem(CHAVE_TOKEN);
+  for (const callback of [...aoEsquecer]) callback();
 }
 
 export function cabecalhosAcesso(extra = {}) {

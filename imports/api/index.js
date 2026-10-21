@@ -11,6 +11,8 @@ import { MockDaemon } from './mock.js';
 import { lerCodigoPareamento, limparCodigoDaUrl } from '../ui/remoto.js';
 import { montarGrade, mesmaGrade, progressosTimeGrid } from '../ui/grade.js';
 
+import { aoEsquecerToken, lerToken } from './acesso.js';
+
 export { cabecalhosAcesso } from './acesso.js';
 
 export {
@@ -90,8 +92,11 @@ export function obterPareamento() {
   return obterBackend().obterPareamento();
 }
 
-// 'nenhum' | 'pareando' | 'pareado' | 'recusado' | 'limitado'
-export const estadoPareamento = new Sinal('nenhum');
+// 'nenhum' | 'pareando' | 'pareado' | 'recusado' | 'limitado' | 'sem_resposta'
+// Recarregar o celular (sem `?p=`) mantém "pareado" enquanto o token
+// salvo existir; um 401 apaga o token e volta para 'nenhum'.
+export const estadoPareamento = new Sinal(lerToken() ? 'pareado' : 'nenhum');
+aoEsquecerToken(() => estadoPareamento.set('nenhum'));
 
 // O celular abriu a URL do QR: devolve o código ao motor real (só ele
 // valida; o mock não existe para outro aparelho) e guarda o token.
@@ -100,21 +105,65 @@ export async function concluirPareamentoDaUrl(loc) {
   const codigo = lerCodigoPareamento(loc);
   if (!codigo) return;
   limparCodigoDaUrl();
+  await parearComCodigo(codigo);
+}
+
+// Troca o código pelo token deste aparelho. Devolve true se pareou.
+export async function parearComCodigo(codigo) {
   estadoPareamento.set('pareando');
   try {
     await daemon.parear(codigo);
     estadoPareamento.set('pareado');
+    return true;
   } catch (e) {
-    estadoPareamento.set(e?.codigo === 'rate_limited' ? 'limitado' : 'recusado');
+    const porCodigo = { rate_limited: 'limitado', sem_resposta: 'sem_resposta' };
+    estadoPareamento.set(porCodigo[e?.codigo] || 'recusado');
+    return false;
   }
 }
 
-export async function sondarBackend() {
+// Quem pode ver o painel: 'verificando' | 'liberado' | 'sem_pareamento' | 'motor_fora'.
+// O motor só protege os dados; sem esta trava o celular via a casca do
+// app (ou o mock inteiro, com o motor fora) e parecia ter entrado.
+export const acessoPainel = new Sinal('verificando');
+
+// O mock só serve para desenvolver no próprio Mac. Aberto pela rede, o
+// mock faria um aparelho não pareado "entrar" num painel falso.
+export function hostLocal(loc = typeof window !== 'undefined' ? window.location : undefined) {
+  const host = loc?.hostname ?? '';
+  return host === '' || host === 'localhost' || host === '127.0.0.1' || host === '[::1]' || host === '::1';
+}
+
+aoEsquecerToken(() => {
+  if (escolhido === daemon) acessoPainel.set('sem_pareamento');
+});
+
+export async function sondarBackend(loc) {
   backendAtivo.set('sondando');
   const dePe = await daemon.sondar();
+  if (!dePe && !hostLocal(loc)) {
+    escolhido = daemon;
+    backendAtivo.set('daemon');
+    acessoPainel.set('motor_fora');
+    return escolhido;
+  }
   escolhido = dePe ? daemon : mock;
   backendAtivo.set(dePe ? 'daemon' : 'mock');
-  await Promise.all([carregarSessao(), carregarFerramentas()]);
+  // `/health` é público; `/session` diz se este aparelho tem acesso.
+  // No Mac o motor nunca responde 401.
+  try {
+    sessaoMotor.set(await escolhido.getSession());
+    erroSessao.set(null);
+  } catch (e) {
+    if (e?.codigo === 'unauthorized') {
+      acessoPainel.set('sem_pareamento');
+      return escolhido;
+    }
+    sessaoMotor.set(null);
+    erroSessao.set(`${e.codigo || 'erro'}: ${e.message}`);
+  }
+  acessoPainel.set('liberado');
+  await carregarFerramentas();
   return escolhido;
 }
 

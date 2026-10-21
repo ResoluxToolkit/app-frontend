@@ -238,7 +238,15 @@ da sessão.
   cada 5 min; o celular devolve o código e recebe um token do aparelho, que vai
   em toda chamada. Contrato em `../engine/docs/API-CONTRATO.md` (seção
   "Pareamento do celular"); `docs/PAREAMENTO.md` resume o lado do cliente.
-  Motor antigo sem a rota (`404`): o painel avisa que o QR abre sem pareamento.
+  Motor antigo sem a rota (`404`): o painel avisa que qualquer aparelho entra.
+  Sem token, o celular vê só a tela de bloqueio, que lê o QR por foto
+  (`imports/ui/leitorQr.js`, jsQR carregado sob demanda) para parear o PWA.
+- Dev pelo Tailscale Serve: `https://mac.tail17794.ts.net:8443` → Vite em
+  `localhost:3003`. Não usar 3003 (o `tailscaled` ocupa a porta no IP do
+  tailnet e o Vite pula para a 3004) nem 1980 (o motor em release escuta nela
+  na LAN e no Tailscale). Em HTTPS
+  o leitor de QR lê ao vivo; o Vite troca o `Origin` do WS enquanto o motor não
+  aceita `*.ts.net`.
 - `ToolPolicy` é read-only e deny-by-default na v1 — a UI trata escrita como
   fixa e só muda o que `PATCH /api/v1/session` aceita
   (`mode`, `backend`, `model`, `toolAllowlist`).

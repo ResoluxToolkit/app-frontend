@@ -29,6 +29,8 @@ import { cabecalhosAcesso, comToken, esquecerToken, salvarToken } from './acesso
 
 // Turnos locais levam minutos (medido no engine: 34 s a 3 min+).
 const TIMEOUT_SONDA_MS = 2000;
+// POST de pareamento roda antes da sonda: não pode segurar o boot.
+const TIMEOUT_PAREAMENTO_MS = 5000;
 const TIMEOUT_TURNO_MS = 5 * 60 * 1000;
 
 export class ErroApi extends Error {
@@ -95,11 +97,21 @@ export class ResoluxDaemon {
   }
 
   async parear(codigo) {
-    const res = await fetch(`${this.base}/api/v1/pareamento`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codigo }),
-    });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT_PAREAMENTO_MS);
+    let res;
+    try {
+      res = await fetch(`${this.base}/api/v1/pareamento`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ codigo }),
+        signal: ctrl.signal,
+      });
+    } catch (_) {
+      throw new ErroApi('sem_resposta', 'O Mac não respondeu. Leia o QR de novo.');
+    } finally {
+      clearTimeout(timer);
+    }
     if (res.status === 401) {
       throw new ErroApi('pairing_invalid', 'Código vencido ou inválido. Leia o QR de novo.');
     }

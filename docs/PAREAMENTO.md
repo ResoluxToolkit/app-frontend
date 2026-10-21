@@ -71,3 +71,49 @@ no HTTP e handshake WS recusado com 401. O cliente, ao receber 401, apaga o
 token salvo e pede para ler o QR de novo.
 
 Atenção ao log: a query `token=` não deve ir para log de acesso.
+
+## Proposta: um token por aparelho e "Desvincular"
+
+Status: **proposta do cliente**, ainda fora do contrato do motor.
+
+No iPhone, cada janela guarda o próprio token: o Safari, o leitor de código da
+Central de Controle e o app instalado (PWA) não compartilham armazenamento.
+O caminho natural é parear o PWA pelo botão "Fotografar o QR" da tela de
+bloqueio, e aí o token que ficou no Safari sobra. O cliente pede:
+
+1. **`POST /api/v1/pareamento` com `"exclusivo": true`** (campo opcional):
+   ao parear, o motor revoga os outros tokens emitidos para o mesmo IP de
+   origem. O PWA manda `exclusivo: true`; o Safari não. Hoje o cliente **não**
+   manda o campo, porque o contrato devolve `400 corpo_invalido` para campo
+   desconhecido.
+2. **`DELETE /api/v1/pareamento`** com `Authorization: Bearer <token>`: revoga
+   o próprio token (botão "Desvincular" no celular). Resposta `204`.
+3. **`GET /api/v1/aparelhos`**, só do Mac: lista
+   `[{"id":"...","ip":"192.168.0.50","pareadoEm":1792528561,"ultimoUsoEm":1792529000}]`
+   (epoch em segundos, sem o token), e **`DELETE /api/v1/aparelhos/<id>`**
+   revoga um deles pelo painel do Mac.
+
+Token revogado responde `401 unauthorized`, como token desconhecido; o
+cliente já apaga o token e volta para a tela de bloqueio nesse caso.
+
+## Proposta: origem do WebSocket pelo Tailscale
+
+Status: **proposta do cliente**, ainda fora do contrato do motor.
+
+O mobile em produção entra por HTTPS via Tailscale Serve (ex.:
+`https://mac.tail17794.ts.net:8443`), que dá contexto seguro (câmera ao vivo
+no leitor de QR). O contrato hoje recusa no handshake WS toda origem com ponto
+que não termine em `.local`, então o nome do MagicDNS (`*.ts.net`) volta `400`
+e o celular fica sem WS. Medido: `Origin: https://mac.tail17794.ts.net:3003`
+→ `400`; `Origin: http://mac:3003` → `101`.
+
+O cliente pede trocar a lista de nomes por **Origin igual ao Host**: aceitar
+quando o host:porta do `Origin` for o mesmo do cabeçalho `Host` do pedido. É a
+defesa padrão contra WS aberto por outro site (o navegador não deixa um site
+forjar `Origin`) e cobre Tailscale, `.local` e IP sem lista. A lista atual
+pode continuar valendo junto.
+
+Até lá, só em dev, o proxy do Vite troca o `Origin` pelo `localhost` quando ele
+é igual ao `Host` (`vite.config.js`); origem de outro site segue intacta e o
+motor continua recusando (`400`). Em produção, com o motor servindo o app, não
+há esse contorno.
