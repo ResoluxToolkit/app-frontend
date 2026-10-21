@@ -58,8 +58,9 @@ lê o QR de novo.
 Com um celular conectado (`remotos` não vazio), o Mac esconde o QR do bloco
 Remote e mostra "<nome> conectado" com um botão "Desconectar" (o mesmo fluxo
 do switch). O QR volta quando o celular é desconectado. Para o motor garantir
-isso mesmo sem a tela, o cliente pede: `POST /api/v1/pareamento` com um
-aparelho já conectado volta `409 already_paired`.
+isso mesmo sem a tela, o cliente pede que o pareamento novo revogue os
+tokens anteriores (o último celular pareado fica; item 1 da proposta em
+`docs/PAREAMENTO.md`).
 
 ## Como ver a tela sem o motor novo
 
