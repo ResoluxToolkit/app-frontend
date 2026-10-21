@@ -12,35 +12,69 @@
 
 const EH_ARENA = /arena|resolume/i;
 
+// Porta de fábrica do Webserver do Arena. A porta configurada no motor
+// (ARENA_REST_PORT) ainda não está no contrato; o bloco `arena` proposto
+// traz `webserver.portaEsperada`.
+export const PORTA_PADRAO_ARENA = 8080;
+
+// Quem ocupa a porta do Webserver sem ser o Arena: é o diagnóstico de
+// "o Arena não consegue abrir o servidor dele".
+function ocupantes(portas, porta) {
+  return portas
+    .filter((p) => p && p.transport === 'TCP' && p.localPort === porta && !EH_ARENA.test(String(p.processName || '')))
+    .map((p) => ({ processo: String(p.processName || '?'), pid: Number.isInteger(p.processID) ? p.processID : null }))
+    .filter((o, i, lista) => lista.findIndex((x) => x.processo === o.processo && x.pid === o.pid) === i);
+}
+
 // { executando: true | false | null, webserver: { ativo, porta } | null,
-//   respondendo: true | false | null, fonte: 'motor' | 'portas' | 'nenhuma' }
+//   respondendo: true | false | null, portaEsperada, conflito: [{ processo, pid }],
+//   fonte: 'motor' | 'portas' | 'nenhuma' }
 // `null` = o contrato não diz.
 export function estadoArena(contrato) {
-  if (!contrato) return { executando: null, webserver: null, respondendo: null, fonte: 'nenhuma' };
+  if (!contrato) {
+    return { executando: null, webserver: null, respondendo: null, portaEsperada: PORTA_PADRAO_ARENA, conflito: [], fonte: 'nenhuma' };
+  }
+  const portas = Array.isArray(contrato.ports) ? contrato.ports : [];
 
   const bloco = contrato.arena;
   if (bloco && typeof bloco === 'object') {
     const web = bloco.webserver && typeof bloco.webserver === 'object' ? bloco.webserver : null;
+    const portaEsperada = Number.isInteger(web?.portaEsperada) ? web.portaEsperada : PORTA_PADRAO_ARENA;
     return {
       executando: typeof bloco.executando === 'boolean' ? bloco.executando : null,
       webserver: web
         ? { ativo: Boolean(web.ativo), porta: Number.isInteger(web.porta) ? web.porta : null }
         : null,
       respondendo: typeof web?.respondendo === 'boolean' ? web.respondendo : null,
+      portaEsperada,
+      conflito: ocupantes(portas, portaEsperada),
       fonte: 'motor',
     };
   }
 
-  const portas = Array.isArray(contrato.ports) ? contrato.ports : [];
   const doArena = portas.filter(
     (p) => p && p.transport === 'TCP' && EH_ARENA.test(String(p.processName || '')) && Number.isInteger(p.localPort),
   );
   if (doArena.length) {
     const porta = Math.min(...doArena.map((p) => p.localPort));
     // Porta do Arena aberta prova que ele está rodando com o Webserver ligado.
-    return { executando: true, webserver: { ativo: true, porta }, respondendo: null, fonte: 'portas' };
+    return {
+      executando: true,
+      webserver: { ativo: true, porta },
+      respondendo: null,
+      portaEsperada: PORTA_PADRAO_ARENA,
+      conflito: ocupantes(portas, PORTA_PADRAO_ARENA),
+      fonte: 'portas',
+    };
   }
-  return { executando: null, webserver: { ativo: false, porta: null }, respondendo: null, fonte: 'portas' };
+  return {
+    executando: null,
+    webserver: { ativo: false, porta: null },
+    respondendo: null,
+    portaEsperada: PORTA_PADRAO_ARENA,
+    conflito: ocupantes(portas, PORTA_PADRAO_ARENA),
+    fonte: 'portas',
+  };
 }
 
 // Título e texto para a aba Composição quando não há grade.
@@ -49,6 +83,15 @@ export function mensagemArena(estado) {
     return {
       titulo: 'Lendo o sistema…',
       texto: 'Aguardando o monitor do motor para saber se o Arena está aberto.',
+    };
+  }
+  // Porta do Webserver ocupada por outro processo: o Arena não consegue
+  // abrir o servidor dele, mesmo com o Webserver ligado nas Preferences.
+  if (estado.conflito.length && !(estado.webserver?.ativo && estado.webserver.porta === estado.portaEsperada)) {
+    const quem = estado.conflito.map((o) => (o.pid ? `${o.processo} (PID ${o.pid})` : o.processo)).join(', ');
+    return {
+      titulo: `Porta ${estado.portaEsperada} ocupada`,
+      texto: `${quem} está usando a porta ${estado.portaEsperada}, a do Webserver do Arena. Enquanto isso, o Arena não consegue abrir o servidor dele: encerre esse processo ou mude a porta do Webserver no Arena e no motor.`,
     };
   }
   if (estado.executando === false) {
