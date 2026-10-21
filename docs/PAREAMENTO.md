@@ -78,7 +78,7 @@ Status: **proposta do cliente**, ainda fora do contrato do motor.
 
 No iPhone, cada janela guarda o próprio token: o Safari, o leitor de código da
 Central de Controle e o app instalado (PWA) não compartilham armazenamento.
-O caminho natural é parear o PWA pelo botão "Ler QR com a câmera" da tela de
+O caminho natural é parear o PWA pelo botão "Fotografar o QR" da tela de
 bloqueio, e aí o token que ficou no Safari sobra. O cliente pede:
 
 1. **`POST /api/v1/pareamento` com `"exclusivo": true`** (campo opcional):

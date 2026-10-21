@@ -270,8 +270,8 @@ function renderBloqueio() {
   // No app instalado o caminho é fotografar o QR daqui mesmo: ler pela
   // Câmera abriria o Safari, que guarda o token num lugar à parte.
   const comoChegar = abertoComoApp()
-    ? 'Toque em "Ler QR com a câmera" e fotografe o QR do bloco Remote, no Mac.'
-    : 'Leia o QR do bloco Remote, no Mac, com o app Câmera (abre direto no navegador) ou toque em "Ler QR com a câmera".';
+    ? 'Toque em "Fotografar o QR", tire a foto do QR do bloco Remote, no Mac, e confirme. A câmera não reconhece o QR sozinha: quem lê é o app, depois da foto.'
+    : 'Leia o QR do bloco Remote, no Mac, com o app Câmera (abre direto no navegador) ou toque em "Fotografar o QR".';
   el('bloqueio-texto').textContent = lendoQr
     ? 'Procurando o QR na foto…'
     : leituraFalhou
