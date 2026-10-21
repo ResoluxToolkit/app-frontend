@@ -25,7 +25,7 @@ export function resolverUrlWs(loc) {
   return `${protocolo}//${contexto.host}/api/v1/ws`;
 }
 
-import { cabecalhosAcesso, comToken, esquecerToken, salvarToken } from './acesso.js';
+import { cabecalhosAcesso, comToken, conferirToken, esquecerToken, salvarToken } from './acesso.js';
 
 // Turnos locais levam minutos (medido no engine: 34 s a 3 min+).
 const TIMEOUT_SONDA_MS = 2000;
@@ -222,6 +222,7 @@ export class ResoluxDaemon {
 
       ws.onclose = () => {
         if (cancelado) return;
+        conferirToken(this.base);
         timer = setTimeout(conectar, 2000);
       };
     };
@@ -294,6 +295,7 @@ export class ResoluxDaemon {
 
       ws.onclose = () => {
         if (cancelado) return;
+        conferirToken(this.base);
         callbacks.onEstado?.('pollando');
         timer = setTimeout(conectar, 2000);
       };

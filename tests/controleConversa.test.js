@@ -32,3 +32,24 @@ describe('conversa em um lugar só', () => {
     }
   });
 });
+
+describe('token velho depois de reiniciar o motor', () => {
+  it('canal caiu e o motor responde 401: esquece o token', async () => {
+    const { conferirToken, lerToken } = await import('../imports/api/acesso.js');
+    const guardado = { 'resolux-token-aparelho': 'velho' };
+    globalThis.localStorage = {
+      getItem: (k) => guardado[k] ?? null,
+      setItem: (k, v) => { guardado[k] = v; },
+      removeItem: (k) => { delete guardado[k]; },
+    };
+    const fetchOriginal = globalThis.fetch;
+    globalThis.fetch = async () => new Response('{}', { status: 401 });
+    try {
+      await conferirToken('', 1_000_000);
+      assert.equal(lerToken(), '');
+    } finally {
+      globalThis.fetch = fetchOriginal;
+      delete globalThis.localStorage;
+    }
+  });
+});
