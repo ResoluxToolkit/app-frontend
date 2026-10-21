@@ -138,3 +138,66 @@ export function abertoComoApp(win = typeof window !== 'undefined' ? window : und
   if (!win) return false;
   return Boolean(win.navigator?.standalone) || Boolean(win.matchMedia?.('(display-mode: standalone)').matches);
 }
+
+// ------------------------------------------------------------
+// Leitura ao vivo, como a demo do jsQR: só existe em contexto seguro
+// (HTTPS, ex.: Tailscale Serve, ou localhost). Em HTTP na LAN o iOS nem
+// expõe `mediaDevices`, e a tela cai no botão de foto.
+// ------------------------------------------------------------
+
+export function podeLerAoVivo(win = typeof window !== 'undefined' ? window : undefined) {
+  return Boolean(win?.isSecureContext && win.navigator?.mediaDevices?.getUserMedia);
+}
+
+// Lado do quadro analisado: o vídeo do iPhone vem em 1080p+, e o jsQR
+// é mais rápido e mais tolerante a moiré num quadro reduzido.
+const LADO_QUADRO = 640;
+
+// Abre a câmera traseira no <video> e procura o QR quadro a quadro,
+// alternando o canal laranja e o original. `aoAchar(texto)` recebe o
+// primeiro QR lido; a câmera é desligada logo depois. Devolve
+// `{ parar() }` para o botão Cancelar.
+export async function lerQrAoVivo(video, aoAchar) {
+  const { default: jsQR } = await import('jsqr');
+  const fluxo = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: 'environment' } },
+    audio: false,
+  });
+  let ativo = true;
+  let quadro = 0;
+  const canvas = document.createElement('canvas');
+  const contexto = canvas.getContext('2d', { willReadFrequently: true });
+
+  const parar = () => {
+    ativo = false;
+    for (const trilha of fluxo.getTracks()) trilha.stop();
+    video.srcObject = null;
+  };
+
+  video.setAttribute('playsinline', '');
+  video.muted = true;
+  video.srcObject = fluxo;
+  await video.play();
+
+  const analisar = () => {
+    if (!ativo) return;
+    if (video.readyState >= video.HAVE_CURRENT_DATA && video.videoWidth) {
+      const escala = Math.min(1, LADO_QUADRO / Math.max(video.videoWidth, video.videoHeight));
+      canvas.width = Math.round(video.videoWidth * escala);
+      canvas.height = Math.round(video.videoHeight * escala);
+      contexto.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const { data, width, height } = contexto.getImageData(0, 0, canvas.width, canvas.height);
+      aplicarCanal(data, quadro % 2 === 0 ? 'laranja' : 'cinza');
+      quadro += 1;
+      const achado = jsQR(data, width, height, { inversionAttempts: 'attemptBoth' });
+      if (achado?.data) {
+        parar();
+        aoAchar(achado.data);
+        return;
+      }
+    }
+    requestAnimationFrame(analisar);
+  };
+  requestAnimationFrame(analisar);
+  return { parar };
+}

@@ -32,7 +32,7 @@ import { juntarDitado, reconhecedorDisponivel } from '../imports/ui/ditado';
 import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
 import { iniciarPreloader } from '../imports/ui/preloader';
-import { abertoComoApp, extrairCodigo, lerQrDaImagem } from '../imports/ui/leitorQr';
+import { abertoComoApp, extrairCodigo, lerQrAoVivo, lerQrDaImagem, podeLerAoVivo } from '../imports/ui/leitorQr';
 import { iniciarControlesJanela } from '../imports/ui/wco';
 import {
   obterBackend,
@@ -230,7 +230,10 @@ function tickRemoto() {
     atualizarRemoto();
     return;
   }
-  const origem = pareamentoAtual.base || urlRemota();
+  // Aberto em HTTPS (Tailscale Serve), o QR leva a própria origem: é
+  // nela que o celular consegue ler o QR ao vivo. Senão, a base do motor.
+  const segura = location.protocol === 'https:' ? urlRemota() : '';
+  const origem = segura || pareamentoAtual.base || urlRemota();
   if (!origem) {
     renderRemoto('Abra pelo endereço de rede para gerar o QR.');
     return;
@@ -269,7 +272,10 @@ function renderBloqueio() {
   const motivo = estadoPareamento.get();
   // No app instalado o caminho é fotografar o QR daqui mesmo: ler pela
   // Câmera abriria o Safari, que guarda o token num lugar à parte.
-  const comoChegar = abertoComoApp()
+  const aoVivo = podeLerAoVivo();
+  const comoChegar = aoVivo
+    ? 'Toque em "Ler QR com a câmera" e aponte para o QR do bloco Remote, no Mac.'
+    : abertoComoApp()
     ? 'Toque em "Fotografar o QR", tire a foto do QR do bloco Remote, no Mac, e confirme. A câmera não reconhece o QR sozinha: quem lê é o app, depois da foto.'
     : 'Leia o QR do bloco Remote, no Mac, com o app Câmera (abre direto no navegador) ou toque em "Fotografar o QR".';
   el('bloqueio-texto').textContent = lendoQr
@@ -279,13 +285,60 @@ function renderBloqueio() {
     : motivo === 'recusado' || motivo === 'limitado' || motivo === 'sem_resposta' || motivo === 'pareando'
       ? mensagemAparelho()
       : comoChegar;
-  el('bloqueio-ler').hidden = motivo === 'pareando' || lendoQr;
+  const ocupado = motivo === 'pareando' || lendoQr || Boolean(leitorAoVivo);
+  // Em HTTPS a câmera lê ao vivo; a foto fica de reserva só em HTTP.
+  el('bloqueio-aovivo').hidden = ocupado || !aoVivo;
+  el('bloqueio-ler').hidden = ocupado || aoVivo;
+  el('bloqueio-video').hidden = !leitorAoVivo;
 }
 
 // Foto do QR tirada pelo botão da trava: decodifica, pareia e, se der
 // certo, refaz a sonda para o painel nascer com o token novo.
 let leituraFalhou = '';
 let lendoQr = false;
+let leitorAoVivo = null; // { parar() } enquanto a câmera estiver aberta
+
+async function concluirLeitura(texto) {
+  const codigo = extrairCodigo(texto);
+  if (!codigo) {
+    rastro(`QR lido, mas não é do Resolux: ${texto.slice(0, 40)}`);
+    leituraFalhou = 'Esse QR não é o do Resolux. Aponte para o QR do bloco Remote, no Mac.';
+    renderBloqueio();
+    return;
+  }
+  rastro('QR do Resolux lido');
+  if (await parearComCodigo(codigo)) sondarBackend();
+}
+
+async function abrirLeitorAoVivo() {
+  leituraFalhou = '';
+  rastro('abrindo a câmera ao vivo');
+  try {
+    leitorAoVivo = { parar() {} };
+    renderBloqueio();
+    leitorAoVivo = await lerQrAoVivo(el('bloqueio-camera-video'), (texto) => {
+      leitorAoVivo = null;
+      renderBloqueio();
+      concluirLeitura(texto);
+    });
+    rastro('procurando o QR no vídeo');
+  } catch (e) {
+    leitorAoVivo = null;
+    rastro(`câmera ao vivo falhou: ${e?.name || ''} ${e?.message || e}`);
+    leituraFalhou =
+      e?.name === 'NotAllowedError'
+        ? 'Sem permissão para a câmera. Libere nos ajustes do navegador e tente de novo.'
+        : 'Não consegui abrir a câmera ao vivo.';
+    renderBloqueio();
+  }
+}
+
+function fecharLeitorAoVivo() {
+  leitorAoVivo?.parar();
+  leitorAoVivo = null;
+  rastro('câmera fechada');
+  renderBloqueio();
+}
 
 // Rastro da leitura na própria tela (e no sessionStorage, para sobreviver
 // se o iOS recarregar o PWA ao voltar da câmera): sem console no
@@ -368,6 +421,8 @@ async function lerQrDaTrava(evento) {
 
 function iniciarRemoto() {
   el('bloqueio-camera')?.addEventListener('change', lerQrDaTrava);
+  el('bloqueio-aovivo')?.addEventListener('click', abrirLeitorAoVivo);
+  el('bloqueio-cancelar')?.addEventListener('click', fecharLeitorAoVivo);
   el('bloqueio-camera')?.addEventListener('click', () => rastro('abrindo a câmera'));
   rastroAnterior();
   acessoPainel.assinar(renderBloqueio);

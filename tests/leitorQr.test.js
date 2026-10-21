@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import jsQR from 'jsqr';
 
-import { abertoComoApp, aplicarCanal, extrairCodigo, recortesCandidatos } from '../imports/ui/leitorQr.js';
+import { abertoComoApp, aplicarCanal, extrairCodigo, podeLerAoVivo, recortesCandidatos } from '../imports/ui/leitorQr.js';
 import { gerarMatrizQr, urlPareamento } from '../imports/ui/remoto.js';
 
 // Desenha a matriz como o painel: módulos laranja sobre fundo escuro.
@@ -64,5 +64,14 @@ describe('canal laranja', () => {
     assert.equal(px[0], 255); // laranja
     assert.equal(px[4], 0); // reflexo
     assert.equal(px[8], 0); // fundo
+  });
+});
+
+describe('leitura ao vivo', () => {
+  it('só em contexto seguro com câmera disponível', () => {
+    const camera = { mediaDevices: { getUserMedia() {} } };
+    assert.equal(podeLerAoVivo({ isSecureContext: true, navigator: camera }), true);
+    assert.equal(podeLerAoVivo({ isSecureContext: false, navigator: camera }), false);
+    assert.equal(podeLerAoVivo({ isSecureContext: true, navigator: {} }), false);
   });
 });
