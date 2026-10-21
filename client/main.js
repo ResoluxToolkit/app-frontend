@@ -295,12 +295,24 @@ async function lerQrDaTrava(evento) {
   lendoQr = true;
   renderBloqueio();
   let codigo = '';
+  let falha = '';
   try {
     codigo = extrairCodigo(await lerQrDaImagem(arquivo));
-  } catch (_) {
-    codigo = '';
+  } catch (e) {
+    console.error('[leitor QR]', e);
+    falha =
+      e?.etapa === 'leitor'
+        ? 'Não consegui carregar o leitor de QR. Recarregue a página e tente de novo.'
+        : e?.etapa === 'foto'
+          ? 'Não consegui abrir a foto. Tente tirar outra.'
+          : `Erro ao ler a foto: ${e?.message || e}`;
   } finally {
     lendoQr = false;
+  }
+  if (falha) {
+    leituraFalhou = falha;
+    renderBloqueio();
+    return;
   }
   if (!codigo) {
     leituraFalhou = 'Não achei o QR do Resolux na foto. Chegue mais perto da tela do Mac e tente de novo.';

@@ -20,7 +20,9 @@ export function recortesCandidatos(largura, altura) {
     const h = altura * fracao;
     const x = Math.min(Math.max(0, cx * largura - w / 2), largura - w);
     const y = Math.min(Math.max(0, cy * altura - h / 2), altura - h);
-    for (const lado of [800, 500]) recortes.push({ x, y, w, h, lado });
+    for (const lado of [800, 500]) {
+      for (const canal of ['laranja', 'cinza']) recortes.push({ x, y, w, h, lado, canal });
+    }
   };
   adicionar(1, 0.5, 0.5);
   adicionar(0.6, 0.5, 0.5);
@@ -44,6 +46,21 @@ export function extrairCodigo(texto) {
   }
 }
 
+// Canal "laranja": vermelho menos azul. Some com o reflexo da tela
+// (branco, R≈B) e com o fundo escuro, e deixa o QR laranja bem claro;
+// com as fotos reais do iPhone, foi o que o jsQR leu em mais tamanhos.
+// "cinza" deixa a imagem como veio (serve para QR preto e branco).
+export function aplicarCanal(data, canal) {
+  if (canal !== 'laranja') return data;
+  for (let i = 0; i < data.length; i += 4) {
+    const v = Math.max(0, Math.min(255, (data[i] - data[i + 2]) * 1.5));
+    data[i] = v;
+    data[i + 1] = v;
+    data[i + 2] = v;
+  }
+  return data;
+}
+
 function pixels(imagem, { x, y, w, h, lado }) {
   const escala = Math.min(1, lado / Math.max(w, h));
   const largura = Math.max(1, Math.round(w * escala));
@@ -56,13 +73,55 @@ function pixels(imagem, { x, y, w, h, lado }) {
   return contexto.getImageData(0, 0, largura, altura);
 }
 
+// Falha antes de procurar o QR: `etapa` diz se foi o leitor que não
+// carregou ou a foto que não abriu, para a tela não culpar a foto à toa.
+export class ErroLeitor extends Error {
+  constructor(etapa, causa) {
+    super(`${etapa}: ${causa?.message || causa}`);
+    this.name = 'ErroLeitor';
+    this.etapa = etapa;
+  }
+}
+
+// createImageBitmap falha com alguns formatos no Safari (HEIC); a <img>
+// decodifica o que o próprio navegador mostra.
+async function abrirImagem(arquivo) {
+  try {
+    return await createImageBitmap(arquivo);
+  } catch (_) {
+    const url = URL.createObjectURL(arquivo);
+    try {
+      const img = new Image();
+      img.src = url;
+      await img.decode();
+      return img;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+}
+
 // Texto do QR na foto, ou '' se não achar. O QR do painel é laranja
 // sobre fundo escuro (invertido), por isso tenta as duas polaridades.
 export async function lerQrDaImagem(arquivo) {
-  const [{ default: jsQR }, imagem] = await Promise.all([import('jsqr'), createImageBitmap(arquivo)]);
+  let jsQR;
+  let imagem;
   try {
-    for (const recorte of recortesCandidatos(imagem.width, imagem.height)) {
+    ({ default: jsQR } = await import('jsqr'));
+  } catch (e) {
+    throw new ErroLeitor('leitor', e);
+  }
+  try {
+    imagem = await abrirImagem(arquivo);
+  } catch (e) {
+    throw new ErroLeitor('foto', e);
+  }
+  try {
+    const largura = imagem.naturalWidth || imagem.width;
+    const altura = imagem.naturalHeight || imagem.height;
+    for (const recorte of recortesCandidatos(largura, altura)) {
       const { data, width, height } = pixels(imagem, recorte);
+      aplicarCanal(data, recorte.canal);
       const achado = jsQR(data, width, height, { inversionAttempts: 'attemptBoth' });
       if (achado?.data) return achado.data;
     }

@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import jsQR from 'jsqr';
 
-import { abertoComoApp, extrairCodigo, recortesCandidatos } from '../imports/ui/leitorQr.js';
+import { abertoComoApp, aplicarCanal, extrairCodigo, recortesCandidatos } from '../imports/ui/leitorQr.js';
 import { gerarMatrizQr, urlPareamento } from '../imports/ui/remoto.js';
 
 // Desenha a matriz como o painel: módulos laranja sobre fundo escuro.
@@ -49,10 +49,20 @@ describe('leitor de QR do PWA', () => {
 describe('recortes do leitor', () => {
   it('começa pela foto inteira e pelo centro, e todo recorte cabe na foto', () => {
     const recortes = recortesCandidatos(3024, 4032);
-    assert.deepEqual(recortes[0], { x: 0, y: 0, w: 3024, h: 4032, lado: 800 });
+    assert.deepEqual(recortes[0], { x: 0, y: 0, w: 3024, h: 4032, lado: 800, canal: 'laranja' });
     assert.ok(recortes.length >= 20);
     for (const r of recortes) {
       assert.ok(r.x >= 0 && r.y >= 0 && r.x + r.w <= 3024 + 1e-6 && r.y + r.h <= 4032 + 1e-6);
     }
+  });
+});
+
+describe('canal laranja', () => {
+  it('apaga reflexo branco e fundo escuro, e acende o laranja', () => {
+    const px = new Uint8ClampedArray([255, 120, 60, 255, 250, 250, 250, 255, 20, 20, 25, 255]);
+    aplicarCanal(px, 'laranja');
+    assert.equal(px[0], 255); // laranja
+    assert.equal(px[4], 0); // reflexo
+    assert.equal(px[8], 0); // fundo
   });
 });
