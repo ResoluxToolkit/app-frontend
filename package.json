@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "border-beam": "^1.4.1",
+    "jsqr": "^1.4.0",
     "metal-fx": "^2.0.11",
     "thinking-orbs": "^0.3.2",
     "voice-glow": "^0.3.0"

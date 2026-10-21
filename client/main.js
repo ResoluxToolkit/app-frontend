@@ -32,6 +32,7 @@ import { juntarDitado, reconhecedorDisponivel } from '../imports/ui/ditado';
 import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
 import { iniciarPreloader } from '../imports/ui/preloader';
+import { abertoComoApp, extrairCodigo, lerQrDaImagem } from '../imports/ui/leitorQr';
 import { iniciarControlesJanela } from '../imports/ui/wco';
 import {
   obterBackend,
@@ -61,6 +62,7 @@ import {
   obterPareamento,
   estadoPareamento,
   acessoPainel,
+  parearComCodigo,
   concluirPareamentoDaUrl,
 } from '../imports/api';
 import {
@@ -265,13 +267,44 @@ function renderBloqueio() {
   }
   el('bloqueio-titulo').textContent = 'Este aparelho não está pareado';
   const motivo = estadoPareamento.get();
-  el('bloqueio-texto').textContent =
-    motivo === 'recusado' || motivo === 'limitado' || motivo === 'sem_resposta'
+  // No app instalado o caminho é fotografar o QR daqui mesmo: ler pela
+  // Câmera abriria o Safari, que guarda o token num lugar à parte.
+  const comoChegar = abertoComoApp()
+    ? 'Toque em "Ler QR com a câmera" e fotografe o QR do bloco Remote, no Mac.'
+    : 'Leia o QR do bloco Remote, no Mac, com o app Câmera (abre direto no navegador) ou toque em "Ler QR com a câmera".';
+  el('bloqueio-texto').textContent = leituraFalhou
+    ? leituraFalhou
+    : motivo === 'recusado' || motivo === 'limitado' || motivo === 'sem_resposta' || motivo === 'pareando'
       ? mensagemAparelho()
-      : 'Leia o QR do bloco Remote, no Mac, com o app Câmera: ele abre direto no navegador. O leitor de código da Central de Controle abre uma janela à parte, e o pareamento fica preso nela.';
+      : comoChegar;
+  el('bloqueio-ler').hidden = motivo === 'pareando';
+}
+
+// Foto do QR tirada pelo botão da trava: decodifica, pareia e, se der
+// certo, refaz a sonda para o painel nascer com o token novo.
+let leituraFalhou = '';
+
+async function lerQrDaTrava(evento) {
+  const arquivo = evento.target.files?.[0];
+  evento.target.value = '';
+  if (!arquivo) return;
+  leituraFalhou = '';
+  let codigo = '';
+  try {
+    codigo = extrairCodigo(await lerQrDaImagem(arquivo));
+  } catch (_) {
+    codigo = '';
+  }
+  if (!codigo) {
+    leituraFalhou = 'Não achei o QR do Resolux na foto. Chegue mais perto da tela do Mac e tente de novo.';
+    renderBloqueio();
+    return;
+  }
+  if (await parearComCodigo(codigo)) sondarBackend();
 }
 
 function iniciarRemoto() {
+  el('bloqueio-camera')?.addEventListener('change', lerQrDaTrava);
   acessoPainel.assinar(renderBloqueio);
   estadoPareamento.assinar(renderBloqueio);
   backendAtivo.assinar((valor) => {

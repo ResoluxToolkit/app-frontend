@@ -105,13 +105,20 @@ export async function concluirPareamentoDaUrl(loc) {
   const codigo = lerCodigoPareamento(loc);
   if (!codigo) return;
   limparCodigoDaUrl();
+  await parearComCodigo(codigo);
+}
+
+// Troca o código pelo token deste aparelho. Devolve true se pareou.
+export async function parearComCodigo(codigo) {
   estadoPareamento.set('pareando');
   try {
     await daemon.parear(codigo);
     estadoPareamento.set('pareado');
+    return true;
   } catch (e) {
     const porCodigo = { rate_limited: 'limitado', sem_resposta: 'sem_resposta' };
     estadoPareamento.set(porCodigo[e?.codigo] || 'recusado');
+    return false;
   }
 }
 

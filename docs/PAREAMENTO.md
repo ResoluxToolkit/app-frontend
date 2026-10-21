@@ -71,3 +71,27 @@ no HTTP e handshake WS recusado com 401. O cliente, ao receber 401, apaga o
 token salvo e pede para ler o QR de novo.
 
 Atenção ao log: a query `token=` não deve ir para log de acesso.
+
+## Proposta: um token por aparelho e "Desvincular"
+
+Status: **proposta do cliente**, ainda fora do contrato do motor.
+
+No iPhone, cada janela guarda o próprio token: o Safari, o leitor de código da
+Central de Controle e o app instalado (PWA) não compartilham armazenamento.
+O caminho natural é parear o PWA pelo botão "Ler QR com a câmera" da tela de
+bloqueio, e aí o token que ficou no Safari sobra. O cliente pede:
+
+1. **`POST /api/v1/pareamento` com `"exclusivo": true`** (campo opcional):
+   ao parear, o motor revoga os outros tokens emitidos para o mesmo IP de
+   origem. O PWA manda `exclusivo: true`; o Safari não. Hoje o cliente **não**
+   manda o campo, porque o contrato devolve `400 corpo_invalido` para campo
+   desconhecido.
+2. **`DELETE /api/v1/pareamento`** com `Authorization: Bearer <token>`: revoga
+   o próprio token (botão "Desvincular" no celular). Resposta `204`.
+3. **`GET /api/v1/aparelhos`**, só do Mac: lista
+   `[{"id":"...","ip":"192.168.0.50","pareadoEm":1792528561,"ultimoUsoEm":1792529000}]`
+   (epoch em segundos, sem o token), e **`DELETE /api/v1/aparelhos/<id>`**
+   revoga um deles pelo painel do Mac.
+
+Token revogado responde `401 unauthorized`, como token desconhecido; o
+cliente já apaga o token e volta para a tela de bloqueio nesse caso.

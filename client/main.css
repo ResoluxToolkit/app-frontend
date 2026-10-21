@@ -3156,3 +3156,19 @@ button.cena-tecla:active {
     color: var(--texto-2);
     line-height: 1.45;
 }
+
+.bloqueio-botao {
+    display: inline-flex;
+    margin-top: 20px;
+    padding: 12px 20px;
+    border: 1px solid var(--marca-border);
+    border-radius: 999px;
+    background: var(--marca-soft);
+    color: var(--marca);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.bloqueio-botao[hidden] {
+    display: none;
+}

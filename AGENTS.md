@@ -238,7 +238,9 @@ da sessão.
   cada 5 min; o celular devolve o código e recebe um token do aparelho, que vai
   em toda chamada. Contrato em `../engine/docs/API-CONTRATO.md` (seção
   "Pareamento do celular"); `docs/PAREAMENTO.md` resume o lado do cliente.
-  Motor antigo sem a rota (`404`): o painel avisa que o QR abre sem pareamento.
+  Motor antigo sem a rota (`404`): o painel avisa que qualquer aparelho entra.
+  Sem token, o celular vê só a tela de bloqueio, que lê o QR por foto
+  (`imports/ui/leitorQr.js`, jsQR carregado sob demanda) para parear o PWA.
 - `ToolPolicy` é read-only e deny-by-default na v1 — a UI trata escrita como
   fixa e só muda o que `PATCH /api/v1/session` aceita
   (`mode`, `backend`, `model`, `toolAllowlist`).
