@@ -3220,10 +3220,13 @@ button.cena-tecla:active {
 }
 
 .retomar-botao {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
     flex: 1;
     min-height: 52px;
     border: 1px solid var(--marca-border);
-    border-radius: 999px;
+    border-radius: 32px;
     background: var(--marca-soft);
     color: var(--marca);
     font-size: 1.05rem;
@@ -3233,6 +3236,56 @@ button.cena-tecla:active {
 
 .retomar-botao:hover {
     background: var(--marca-border);
+}
+
+/* Border beam "pulse-inner" do libraries.dev em port vanilla (o pacote
+   border-beam é React e este app não usa React): brilho interno que gira e
+   respira, paleta "sunset", 6 s por volta, brilho 0.5, raio 32 e sem anel
+   nítido (--beam-stroke-opacity 0). */
+.retomar-botao::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: conic-gradient(
+        from var(--beam-angulo, 0deg),
+        #ff9f0a 0deg,
+        #ff453a 90deg,
+        #ffd60a 180deg,
+        oklch(69% 0.2 39) 270deg,
+        #ff9f0a 360deg
+    );
+    filter: blur(3px) brightness(0.5) saturate(1.3);
+    -webkit-mask:
+        linear-gradient(#fff, transparent 18px, transparent calc(100% - 18px), #fff),
+        linear-gradient(to right, #fff, transparent 26px, transparent calc(100% - 26px), #fff);
+    -webkit-mask-composite: source-over;
+    mask:
+        linear-gradient(#fff, transparent 18px, transparent calc(100% - 18px), #fff),
+        linear-gradient(to right, #fff, transparent 26px, transparent calc(100% - 26px), #fff);
+    mask-composite: add;
+    animation:
+        beam-gira 6s linear infinite,
+        retomar-respira 3s ease-in-out infinite;
+}
+
+@keyframes retomar-respira {
+    0%,
+    100% {
+        opacity: 0.55;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .retomar-botao::before {
+        animation: none;
+        opacity: 0.7;
+    }
 }
 
 .retomar-switch {
