@@ -3172,3 +3172,10 @@ button.cena-tecla:active {
 .bloqueio-botao[hidden] {
     display: none;
 }
+
+.bloqueio-diag {
+    margin: 16px 0 0;
+    font-size: 0.75rem;
+    color: var(--texto-3);
+    word-break: break-word;
+}

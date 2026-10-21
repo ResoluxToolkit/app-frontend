@@ -103,7 +103,7 @@ async function abrirImagem(arquivo) {
 
 // Texto do QR na foto, ou '' se não achar. O QR do painel é laranja
 // sobre fundo escuro (invertido), por isso tenta as duas polaridades.
-export async function lerQrDaImagem(arquivo) {
+export async function lerQrDaImagem(arquivo, avisar = () => {}) {
   let jsQR;
   let imagem;
   try {
@@ -111,6 +111,7 @@ export async function lerQrDaImagem(arquivo) {
   } catch (e) {
     throw new ErroLeitor('leitor', e);
   }
+  avisar('leitor carregado');
   try {
     imagem = await abrirImagem(arquivo);
   } catch (e) {
@@ -119,6 +120,7 @@ export async function lerQrDaImagem(arquivo) {
   try {
     const largura = imagem.naturalWidth || imagem.width;
     const altura = imagem.naturalHeight || imagem.height;
+    avisar(`foto aberta: ${largura}x${altura}`);
     for (const recorte of recortesCandidatos(largura, altura)) {
       const { data, width, height } = pixels(imagem, recorte);
       aplicarCanal(data, recorte.canal);

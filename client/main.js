@@ -287,18 +287,59 @@ function renderBloqueio() {
 let leituraFalhou = '';
 let lendoQr = false;
 
+// Rastro da leitura na própria tela (e no sessionStorage, para sobreviver
+// se o iOS recarregar o PWA ao voltar da câmera): sem console no
+// iPhone, é o que diz em que passo a leitura parou.
+const CHAVE_RASTRO = 'resolux-leitor-qr';
+
+function rastro(texto) {
+  const linha = `${new Date().toLocaleTimeString()} · ${texto}`;
+  try {
+    sessionStorage.setItem(CHAVE_RASTRO, linha);
+  } catch (_) {
+    // sem storage: fica só na tela
+  }
+  const diag = el('bloqueio-diag');
+  if (diag) diag.textContent = linha;
+}
+
+function rastroAnterior() {
+  let linha = '';
+  try {
+    linha = sessionStorage.getItem(CHAVE_RASTRO) || '';
+  } catch (_) {
+    linha = '';
+  }
+  if (!linha) return;
+  const diag = el('bloqueio-diag');
+  if (diag) {
+    diag.textContent = linha.includes('abrindo a câmera')
+      ? `${linha} → a página recarregou ao voltar da câmera`
+      : linha;
+  }
+}
+
 async function lerQrDaTrava(evento) {
-  const arquivo = evento.target.files?.[0];
-  evento.target.value = '';
-  if (!arquivo) return;
+  const entrada = evento.target;
+  const arquivo = entrada.files?.[0];
+  if (!arquivo) {
+    rastro('voltou da câmera sem foto');
+    return;
+  }
+  rastro(`foto recebida: ${arquivo.type || 'sem tipo'}, ${Math.round(arquivo.size / 1024)} KB`);
   leituraFalhou = '';
   lendoQr = true;
   renderBloqueio();
   let codigo = '';
   let falha = '';
+  const t0 = performance.now();
   try {
-    codigo = extrairCodigo(await lerQrDaImagem(arquivo));
+    const texto = await lerQrDaImagem(arquivo, (passo) => rastro(passo));
+    codigo = extrairCodigo(texto);
+    const ms = Math.round(performance.now() - t0);
+    rastro(texto ? `QR lido em ${ms} ms: ${codigo ? 'código do Resolux' : texto.slice(0, 40)}` : `nenhum QR na foto (${ms} ms)`);
   } catch (e) {
+    rastro(`erro: ${e?.message || e}`);
     console.error('[leitor QR]', e);
     falha =
       e?.etapa === 'leitor'
@@ -308,6 +349,9 @@ async function lerQrDaTrava(evento) {
           : `Erro ao ler a foto: ${e?.message || e}`;
   } finally {
     lendoQr = false;
+    // Só limpa depois de ler: no Safari, zerar o input antes pode
+    // invalidar o arquivo que acabou de chegar.
+    entrada.value = '';
   }
   if (falha) {
     leituraFalhou = falha;
@@ -324,6 +368,8 @@ async function lerQrDaTrava(evento) {
 
 function iniciarRemoto() {
   el('bloqueio-camera')?.addEventListener('change', lerQrDaTrava);
+  el('bloqueio-camera')?.addEventListener('click', () => rastro('abrindo a câmera'));
+  rastroAnterior();
   acessoPainel.assinar(renderBloqueio);
   estadoPareamento.assinar(renderBloqueio);
   backendAtivo.assinar((valor) => {
