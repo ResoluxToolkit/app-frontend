@@ -53,6 +53,14 @@ Desligar o switch no Mac pede confirmação e chama
 recebe `401` na próxima chamada e volta para a tela de bloqueio. Para religar,
 lê o QR de novo.
 
+## Um desktop, um celular
+
+Com um celular conectado (`remotos` não vazio), o Mac esconde o QR do bloco
+Remote e mostra "<nome> conectado" com um botão "Desconectar" (o mesmo fluxo
+do switch). O QR volta quando o celular é desconectado. Para o motor garantir
+isso mesmo sem a tela, o cliente pede: `POST /api/v1/pareamento` com um
+aparelho já conectado volta `409 already_paired`.
+
 ## Como ver a tela sem o motor novo
 
 Com ou sem o motor, `localStorage['resolux-simular-remoto'] = '1'` e

@@ -209,7 +209,23 @@ function renderRemoto(estadoTexto, url = '') {
 // aparelho não pergunta de novo (cada pergunta vira erro no console).
 let foraDoMac = false;
 
+// Um desktop e um celular: com o celular conectado o QR some do Mac e
+// volta quando ele for desconectado (lista vem de conversa.controle).
+function remotoConectado() {
+  if (souRemoto()) return '';
+  const { remotos } = controleConversa.get();
+  return remotos.length ? remotos.map((r) => r.nome).join(', ') : '';
+}
+
 async function atualizarRemoto() {
+  const conectado = remotoConectado();
+  const desconectar = el('remoto-desconectar');
+  if (desconectar) desconectar.hidden = !conectado;
+  if (conectado) {
+    pareamentoAtual = null;
+    renderRemoto(`${conectado} conectado. O QR volta quando ele for desconectado.`);
+    return;
+  }
   if (foraDoMac) {
     renderRemoto(mensagemAparelho() || 'O QR de pareamento aparece no painel do Mac.');
     return;
@@ -1391,24 +1407,29 @@ function renderControle() {
   }
 }
 
-async function aoTrocarSwitchRemoto(evento) {
-  if (evento.target.checked) return; // ligar de novo é parear pelo QR
+// Desconecta o celular (switch da barra ou botão do bloco Remote).
+// Devolve false se o operador desistiu ou deu erro.
+async function desconectarCelular() {
   const { remotos } = controleConversa.get();
   const nomes = remotos.map((r) => r.nome).join(', ') || 'o celular';
-  if (!window.confirm(`Desconectar ${nomes}? Para voltar, será preciso ler o QR de novo.`)) {
-    evento.target.checked = true;
-    return;
-  }
+  if (!window.confirm(`Desconectar ${nomes}? Para voltar, será preciso ler o QR de novo.`)) return false;
   try {
     await desconectarRemotos();
     (controleSimulado || inscricaoConversa)?.assumir();
+    return true;
   } catch (e) {
-    evento.target.checked = true;
+    el('retomar-aviso').hidden = false;
     el('retomar-aviso').textContent =
       e?.codigo === 'not_found' || e?.codigo === 'http_404' || e?.codigo === 'http_405'
         ? 'Este motor ainda não sabe desconectar aparelhos.'
         : `Não deu para desconectar: ${e?.message || e}`;
+    return false;
   }
+}
+
+async function aoTrocarSwitchRemoto(evento) {
+  if (evento.target.checked) return; // ligar de novo é parear pelo QR
+  if (!(await desconectarCelular())) evento.target.checked = true;
 }
 
 function configurarInstalacaoPwa() {
@@ -1531,8 +1552,10 @@ function registrarAssinaturas() {
   backendAtivo.assinar(atualizarTopbar);
   backendAtivo.assinar(sincronizarConversaRemota);
   controleConversa.assinar(renderControle);
+  controleConversa.assinar(() => atualizarRemoto());
   el('btn-retomar').addEventListener('click', () => (controleSimulado || inscricaoConversa)?.assumir());
   el('switch-remoto').addEventListener('change', aoTrocarSwitchRemoto);
+  el('remoto-desconectar')?.addEventListener('click', desconectarCelular);
   mensagens.assinar(renderMensagens);
   mensagens.assinar(renderConversas);
   backendAtivo.assinar(renderConversas);

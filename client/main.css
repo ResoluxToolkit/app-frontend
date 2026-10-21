@@ -3350,3 +3350,18 @@ button.cena-tecla:active {
 .retomar-aviso[hidden] {
     display: none;
 }
+
+.remote-desconectar {
+    margin-top: 10px;
+    padding: 6px 14px;
+    border: 1px solid var(--perigo-border);
+    border-radius: 999px;
+    background: var(--perigo-soft);
+    color: var(--perigo);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.remote-desconectar[hidden] {
+    display: none;
+}
