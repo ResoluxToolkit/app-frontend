@@ -5,8 +5,13 @@
       "name": "dev",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": [
-        "run",
-        "dev"
+        "exec",
+        "vite",
+        "--port",
+        "3003",
+        "--host",
+        "127.0.0.1",
+        "--strictPort"
       ],
       "port": 3003
     }

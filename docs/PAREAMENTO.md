@@ -95,3 +95,25 @@ bloqueio, e aí o token que ficou no Safari sobra. O cliente pede:
 
 Token revogado responde `401 unauthorized`, como token desconhecido; o
 cliente já apaga o token e volta para a tela de bloqueio nesse caso.
+
+## Proposta: origem do WebSocket pelo Tailscale
+
+Status: **proposta do cliente**, ainda fora do contrato do motor.
+
+O mobile em produção entra por HTTPS via Tailscale Serve (ex.:
+`https://mac.tail17794.ts.net:3003`), que dá contexto seguro (câmera ao vivo
+no leitor de QR). O contrato hoje recusa no handshake WS toda origem com ponto
+que não termine em `.local`, então o nome do MagicDNS (`*.ts.net`) volta `400`
+e o celular fica sem WS. Medido: `Origin: https://mac.tail17794.ts.net:3003`
+→ `400`; `Origin: http://mac:3003` → `101`.
+
+O cliente pede trocar a lista de nomes por **Origin igual ao Host**: aceitar
+quando o host:porta do `Origin` for o mesmo do cabeçalho `Host` do pedido. É a
+defesa padrão contra WS aberto por outro site (o navegador não deixa um site
+forjar `Origin`) e cobre Tailscale, `.local` e IP sem lista. A lista atual
+pode continuar valendo junto.
+
+Até lá, só em dev, o proxy do Vite troca o `Origin` pelo `localhost` quando ele
+é igual ao `Host` (`vite.config.js`); origem de outro site segue intacta e o
+motor continua recusando (`400`). Em produção, com o motor servindo o app, não
+há esse contorno.

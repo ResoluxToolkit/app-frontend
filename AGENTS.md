@@ -241,6 +241,10 @@ da sessão.
   Motor antigo sem a rota (`404`): o painel avisa que qualquer aparelho entra.
   Sem token, o celular vê só a tela de bloqueio, que lê o QR por foto
   (`imports/ui/leitorQr.js`, jsQR carregado sob demanda) para parear o PWA.
+- Dev pelo Tailscale Serve (`https://mac.tail17794.ts.net:3003` → `localhost:3003`):
+  o `tailscaled` ocupa a 3003 no IP do tailnet, então o preview `dev` sobe o
+  Vite só em `127.0.0.1` (`.claude/launch.json`). Em HTTPS o leitor de QR lê ao
+  vivo; o Vite troca o `Origin` do WS enquanto o motor não aceita `*.ts.net`.
 - `ToolPolicy` é read-only e deny-by-default na v1 — a UI trata escrita como
   fixa e só muda o que `PATCH /api/v1/session` aceita
   (`mode`, `backend`, `model`, `toolAllowlist`).
