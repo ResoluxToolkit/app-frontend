@@ -714,8 +714,19 @@ function alternarVoz() {
 let inscricaoMonitor = null;
 
 function iniciarMonitor() {
-  if (!inscricaoMonitor) inscricaoMonitor = assinarMonitorGrade();
+  // Durante a sonda ainda não se sabe se é motor ou mock: assinar agora
+  // prendia a tela no mock (a grade falsa aparecia mesmo com o motor no
+  // ar). A troca de backend reinicia a assinatura.
+  if (!inscricaoMonitor && backendAtivo.get() !== 'sondando') inscricaoMonitor = assinarMonitorGrade();
   renderMonitor();
+}
+
+function reiniciarMonitorAoTrocarBackend() {
+  if (!SECOES_GRADE.has(secaoAtiva.get())) return;
+  pararMonitor();
+  gradeMonitor.set(null);
+  erroMonitor.set(null);
+  iniciarMonitor();
 }
 
 function pararMonitor() {
@@ -747,7 +758,6 @@ function ehMobile() {
 
 const ICONE_CENA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"></rect><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"></rect><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"></rect></svg>';
 
-const NOTA_MOCK_GRADE = '<p class="nota-mock">Mock local: grade de exemplo, sem Arena de verdade — por isso não há thumbnails. Com o daemon de pé, a grade e as thumbs vêm do proxy read-only <code>/api/v1/arena/**</code>.</p>';
 
 function gradeCardHtml(grade, status) {
   const totalClips = grade.camadas.reduce((total, camada) => total + camada.celulas.filter((celula) => celula.preenchido).length, 0);
@@ -805,7 +815,9 @@ function renderMonitor() {
   pill.className = `pill-status ${status === 'ok' ? 'pill-sucesso' : status === 'erro' ? 'pill-alerta' : ''}`;
 
   if (!grade) {
-    el('monitor-conteudo').innerHTML = erro
+    el('monitor-conteudo').innerHTML = backendAtivo.get() === 'mock' || erro?.startsWith('motor_indisponivel')
+      ? '<div class="em-breve vidro"><div class="secao-titulo">Motor fora do ar</div><p>Sem o motor Resolux não há composição do Arena para mostrar. Abra o Resolux no Mac e recarregue.</p></div>'
+      : erro
       ? `<div class="em-breve vidro"><div class="secao-titulo">Monitor indisponível</div><p><strong>${escaparHtml(erro)}</strong> Sem uma grade boa em memória para mostrar.</p></div>`
       : `<div class="em-breve vidro"><div class="secao-titulo">Sondando o Arena…</div><p>Primeiro poll da grade ainda não voltou.</p></div>`;
     return;
@@ -816,7 +828,6 @@ function renderMonitor() {
       ${grade.ativo ? `<span class="clip-ativo-nome">${escaparHtml(grade.ativo.nome)}</span><span class="clip-ativo-endereco">tocando em ${escaparHtml(grade.ativo.endereco)}</span>` : '<span class="clip-ativo-nome neutro">nenhum clip tocando</span>'}
       <span class="ultimo-poll">último poll ${horaFormatada(ultimoPollMonitor.get())}</span>
     </div>
-    ${backendAtivo.get() === 'mock' ? NOTA_MOCK_GRADE : ''}
     ${erro ? `<div class="aviso-erro vidro" role="alert"><strong>Monitor falhou:</strong> ${escaparHtml(erro)}</div>` : ''}
     ${gradeCardHtml(grade, status)}
   `;
@@ -1475,6 +1486,7 @@ function registrarAssinaturas() {
   });
   backendAtivo.assinar(atualizarTopbar);
   backendAtivo.assinar(sincronizarConversaRemota);
+  backendAtivo.assinar(reiniciarMonitorAoTrocarBackend);
   mensagens.assinar(renderMensagens);
   mensagens.assinar(renderConversas);
   backendAtivo.assinar(renderConversas);

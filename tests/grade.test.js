@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { formatarTempo, montarGrade, rotuloCamada, mesmaGrade, progressosTimeGrid } from '../imports/ui/grade.js';
+import { composicaoExemplo } from './fixtures/composicaoExemplo.js';
 import { MockDaemon } from '../imports/api/mock.js';
 
 const composicao = {
@@ -228,13 +229,9 @@ describe('TimeGrid', () => {
   });
 });
 
-describe('MockDaemon', () => {
-  it('empurra a composição de exemplo via assinatura', async () => {
-    const backend = new MockDaemon();
-    const composicaoMock = await new Promise((resolve) => {
-      const inscricao = backend.assinarMonitor({ onDados: resolve });
-      inscricao.cancelar();
-    });
+describe('composição de exemplo (fixture)', () => {
+  it('o parser monta a grade com TimeGrid', () => {
+    const composicaoMock = composicaoExemplo();
     const grade = montarGrade(composicaoMock);
     assert.equal(grade.camadas.length, 4);
     assert.deepEqual(grade.camadas.map((camada) => camada.numero), [4, 3, 2, 1]);
@@ -245,15 +242,18 @@ describe('MockDaemon', () => {
     assert.equal(grade.colunas.length, 9);
     assert.equal(grade.camadas[0].totalTempo, 600);
     assert.equal(progressosTimeGrid(composicaoMock).length, 1);
-    assert.equal(backend.urlThumbnail(1, 'x'), null);
   });
+});
 
-  it('cancela a assinatura após o poll inicial', async () => {
+describe('MockDaemon', () => {
+  it('sem motor não inventa composição: avisa que o motor está fora', () => {
     const backend = new MockDaemon();
-    let chamadas = 0;
-    const inscricao = backend.assinarMonitor({ onDados: () => { chamadas += 1; } });
+    let dados = 0;
+    let erro = null;
+    const inscricao = backend.assinarMonitor({ onDados: () => { dados += 1; }, onErro: (codigo) => { erro = codigo; } });
     inscricao.cancelar();
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    assert.equal(chamadas, 1);
+    assert.equal(dados, 0);
+    assert.equal(erro, 'motor_indisponivel');
+    assert.equal(backend.urlThumbnail(1, 'x'), null);
   });
 });

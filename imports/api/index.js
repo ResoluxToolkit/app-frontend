@@ -186,10 +186,22 @@ export const erroMonitor = new Sinal(null);
 export const progressoGrade = new Sinal([]);
 
 // Retorna { cancelar() }. Quem abre a tela assina; quem fecha cancela.
+// Sem dado nem erro do motor nesse prazo, a tela diz o que está
+// acontecendo em vez de "Sondando o Arena…" para sempre (o motor atual
+// não responde ao monitor.subscribe quando o Arena está fechado).
+export const PRAZO_PRIMEIRA_GRADE_MS = 8000;
+
 export function assinarMonitorGrade() {
   estadoMonitor.set('pollando');
-  return obterBackend().assinarMonitor({
+  const prazo = setTimeout(() => {
+    if (!gradeMonitor.get() && !erroMonitor.get()) {
+      erroMonitor.set('sem_resposta: o motor não mandou a composição. O Arena pode estar fechado.');
+      estadoMonitor.set('erro');
+    }
+  }, PRAZO_PRIMEIRA_GRADE_MS);
+  const inscricao = obterBackend().assinarMonitor({
     onDados(composicao) {
+      clearTimeout(prazo);
       const grade = montarGrade(composicao);
       const backend = obterBackend();
       // Só o daemon real tem URL de thumbnail; o mock devolve null e
@@ -218,8 +230,15 @@ export function assinarMonitorGrade() {
       estadoMonitor.set('ok');
     },
     onErro(codigo, mensagem) {
+      clearTimeout(prazo);
       erroMonitor.set(`${codigo}: ${mensagem}`);
       estadoMonitor.set('erro');
     },
   });
+  return {
+    cancelar() {
+      clearTimeout(prazo);
+      inscricao.cancelar();
+    },
+  };
 }

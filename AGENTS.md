@@ -53,6 +53,11 @@ Navegador (bundle estático)
 - Estado da sessão do motor (`GET/PATCH /api/v1/session`, `GET /api/v1/tools`)
   fica em `Sinal`es exportados por `imports/api/index.js` e é editado na aba
   Ajustes. O mock guarda a sessão só em memória (recarregar zera).
+- Composição: o mock não inventa grade (a de exemplo virou fixture de teste
+  em `tests/fixtures/`); sem motor a aba mostra "Motor fora do ar". O monitor
+  só assina depois da sonda e reinicia quando o backend muda; sem dado nem erro
+  do motor em 8 s, mostra `sem_resposta` (o motor atual não responde ao
+  `monitor.subscribe` com o Arena fechado).
 - Conversa: a thread vive em `localStorage` (`imports/ui/persistencia.js`) e
   sobrevive ao refresh. Com o daemon de pé, `GET /api/v1/conversa` +
   `assinarConversa` (WebSocket) sincronizam a thread entre dispositivos
