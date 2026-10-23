@@ -53,3 +53,32 @@ describe('token velho depois de reiniciar o motor', () => {
     }
   });
 });
+
+describe('celular assume a conversa uma vez só', () => {
+  it('reconexão não toma de volta a conversa que o Mac retomou', async () => {
+    const { ResoluxDaemon } = await import('../imports/api/client.js');
+    const enviados = [];
+    const sockets = [];
+    const WsOriginal = globalThis.WebSocket;
+    globalThis.WebSocket = class {
+      static OPEN = 1;
+      constructor() { sockets.push(this); this.readyState = 1; }
+      send(texto) { enviados.push(JSON.parse(texto).type); }
+      close() {}
+    };
+    try {
+      const daemon = new ResoluxDaemon({ base: 'http://x', wsUrl: 'ws://x' });
+      const inscricao = daemon.assinarConversa({ assumirAoConectar: true });
+      sockets[0].onopen();
+      // queda e reconexão
+      inscricao.cancelar();
+      const segunda = daemon.assinarConversa({ assumirAoConectar: true });
+      sockets[1].onopen();
+      sockets[1].onopen(); // reabrir na mesma inscrição
+      segunda.cancelar();
+      assert.deepEqual(enviados.filter((t) => t === 'conversa.assumir').length, 2);
+    } finally {
+      globalThis.WebSocket = WsOriginal;
+    }
+  });
+});

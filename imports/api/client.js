@@ -188,6 +188,7 @@ export class ResoluxDaemon {
     let timer = null;
     let tentativa = 0;
     let socket = null;
+    let jaAssumiu = false;
 
     const conectar = () => {
       if (cancelado) return;
@@ -197,8 +198,11 @@ export class ResoluxDaemon {
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: 'conversa.subscribe', id }));
-        // Celular pareado assume a escrita ao (re)conectar.
-        if (callbacks.assumirAoConectar) {
+        // Celular pareado assume a escrita só na primeira conexão que abrir:
+        // numa reconexão (queda de rede) ele não pode tomar de volta a
+        // conversa que o Mac retomou.
+        if (callbacks.assumirAoConectar && !jaAssumiu) {
+          jaAssumiu = true;
           ws.send(JSON.stringify({ type: 'conversa.assumir', id: `assumir-${id}` }));
         }
       };
