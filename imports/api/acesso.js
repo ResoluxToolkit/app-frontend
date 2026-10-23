@@ -49,3 +49,22 @@ export function comToken(url, token = lerToken()) {
   const separador = url.includes('?') ? '&' : '?';
   return `${url}${separador}token=${encodeURIComponent(token)}`;
 }
+
+// WebSocket e EventSource não mostram o status do handshake: um 401
+// (token velho, motor reiniciado) parece só uma queda e o aparelho
+// ficaria reconectando para sempre com a tela antiga. Quando um desses
+// canais cai, uma chamada HTTP curta confere o token; se o motor
+// responder 401, o token é esquecido e a UI volta para a trava.
+let ultimaConferencia = 0;
+const INTERVALO_CONFERENCIA_MS = 5000;
+
+export async function conferirToken(base = '', agora = Date.now()) {
+  if (!lerToken() || agora - ultimaConferencia < INTERVALO_CONFERENCIA_MS) return;
+  ultimaConferencia = agora;
+  try {
+    const resposta = await fetch(`${base}/api/v1/session`, { headers: cabecalhosAcesso() });
+    if (resposta.status === 401) esquecerToken();
+  } catch (_) {
+    // Motor fora: nada a concluir; o canal segue tentando.
+  }
+}

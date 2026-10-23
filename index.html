@@ -231,6 +231,7 @@
                 <div class="remote-estado" id="remoto-estado">Preparando acesso…</div>
                 <canvas id="remoto-qr" class="qr-canvas" width="160" height="160" aria-label="QR Code do painel remoto"></canvas>
                 <a id="remoto-url" class="remote-url" href="#" target="_blank" rel="noopener"></a>
+                <button type="button" id="remoto-desconectar" class="remote-desconectar" hidden>Desconectar</button>
               </div>
             </details>
           </aside>
@@ -266,6 +267,14 @@
                   </div>
                 </form>
               </div>
+              <div id="composer-retomar" class="retomar" hidden>
+                <button type="button" id="btn-retomar" class="retomar-botao">Retomar conversa</button>
+                <label id="retomar-remoto" class="retomar-switch" title="Celular conectado">
+                  <input type="checkbox" id="switch-remoto" role="switch" checked aria-label="Celular conectado" />
+                  <span class="retomar-trilho" aria-hidden="true"><span class="retomar-bolinha"></span></span>
+                </label>
+              </div>
+              <p id="retomar-aviso" class="retomar-aviso" hidden></p>
             </div>
           </main>
         </section>

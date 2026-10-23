@@ -25,7 +25,7 @@ export function resolverUrlWs(loc) {
   return `${protocolo}//${contexto.host}/api/v1/ws`;
 }
 
-import { cabecalhosAcesso, comToken, esquecerToken, salvarToken } from './acesso.js';
+import { cabecalhosAcesso, comToken, conferirToken, esquecerToken, salvarToken } from './acesso.js';
 
 // Turnos locais levam minutos (medido no engine: 34 s a 3 min+).
 const TIMEOUT_SONDA_MS = 2000;
@@ -188,6 +188,7 @@ export class ResoluxDaemon {
     let timer = null;
     let tentativa = 0;
     let socket = null;
+    let jaAssumiu = false;
 
     const conectar = () => {
       if (cancelado) return;
@@ -197,6 +198,13 @@ export class ResoluxDaemon {
 
       ws.onopen = () => {
         ws.send(JSON.stringify({ type: 'conversa.subscribe', id }));
+        // Celular pareado assume a escrita só na primeira conexão que abrir:
+        // numa reconexão (queda de rede) ele não pode tomar de volta a
+        // conversa que o Mac retomou.
+        if (callbacks.assumirAoConectar && !jaAssumiu) {
+          jaAssumiu = true;
+          ws.send(JSON.stringify({ type: 'conversa.assumir', id: `assumir-${id}` }));
+        }
       };
 
       ws.onmessage = (evento) => {
@@ -209,10 +217,16 @@ export class ResoluxDaemon {
         if (mensagem.type === 'conversa.update') {
           callbacks.onTurnos?.(mensagem.payload?.turnos || []);
         }
+        // Proposta (docs/CONVERSA-UM-LUGAR.md): quem escreve na conversa.
+        // Motor sem a mensagem nunca manda, e a UI segue como hoje.
+        if (mensagem.type === 'conversa.controle') {
+          callbacks.onControle?.(mensagem.payload || {});
+        }
       };
 
       ws.onclose = () => {
         if (cancelado) return;
+        conferirToken(this.base);
         timer = setTimeout(conectar, 2000);
       };
     };
@@ -227,7 +241,19 @@ export class ResoluxDaemon {
         socket?.close();
         socket = null;
       },
+      // Pede a escrita da conversa para esta conexão (proposta).
+      assumir() {
+        if (socket?.readyState === WebSocket.OPEN) {
+          socket.send(JSON.stringify({ type: 'conversa.assumir', id: `assumir-${Date.now()}` }));
+        }
+      },
     };
+  }
+
+  // Desconecta um aparelho pareado (proposta em docs/PAREAMENTO.md).
+  async revogarAparelho(id) {
+    const res = await this.pedir(`/api/v1/aparelhos/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!res.ok) throw await lerEnvelopeErro(res);
   }
 
   // Monitor do Arena — ASSINATURA via WS, não poll da UI. O daemon é quem
@@ -273,6 +299,7 @@ export class ResoluxDaemon {
 
       ws.onclose = () => {
         if (cancelado) return;
+        conferirToken(this.base);
         callbacks.onEstado?.('pollando');
         timer = setTimeout(conectar, 2000);
       };

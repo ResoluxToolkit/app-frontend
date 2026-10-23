@@ -81,11 +81,12 @@ Central de Controle e o app instalado (PWA) não compartilham armazenamento.
 O caminho natural é parear o PWA pelo botão "Fotografar o QR" da tela de
 bloqueio, e aí o token que ficou no Safari sobra. O cliente pede:
 
-1. **`POST /api/v1/pareamento` com `"exclusivo": true`** (campo opcional):
-   ao parear, o motor revoga os outros tokens emitidos para o mesmo IP de
-   origem. O PWA manda `exclusivo: true`; o Safari não. Hoje o cliente **não**
-   manda o campo, porque o contrato devolve `400 corpo_invalido` para campo
-   desconhecido.
+1. **Um celular por vez: o pareamento novo revoga todos os tokens
+   anteriores.** Quem pareou por último fica; os outros recebem `401` e voltam
+   para a tela de bloqueio. Cobre o Safari que sobra depois de parear o PWA e
+   a regra "um desktop, um celular" (`docs/CONVERSA-UM-LUGAR.md`). Sem campo
+   novo no `POST` (o contrato recusa campo desconhecido). Medido em
+   2026-10-21: parear de novo no Safari deixa o PWA, pareado antes, logado.
 2. **`DELETE /api/v1/pareamento`** com `Authorization: Bearer <token>`: revoga
    o próprio token (botão "Desvincular" no celular). Resposta `204`.
 3. **`GET /api/v1/aparelhos`**, só do Mac: lista
