@@ -7,7 +7,7 @@
 // ------------------------------------------------------------
 
 import { Sinal } from '../ui/signal.js';
-import { comToken } from './acesso.js';
+import { comToken, conferirToken } from './acesso.js';
 
 // 'parado' | 'conectando' | 'ok' | 'offline'
 export const estadoSistema = new Sinal('parado');
@@ -102,6 +102,7 @@ export function assinarSistema(CriadorFonte = EventSource, url = URL_PADRAO) {
   fonte.onmessage = (evento) => aplicarContratoSistema(evento);
   fonte.onerror = () => {
     estadoSistema.set('offline');
+    conferirToken();
   };
   return {
     cancelar() {

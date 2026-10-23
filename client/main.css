@@ -3206,3 +3206,162 @@ button.cena-tecla:active {
     background: transparent;
     color: var(--texto-2);
 }
+
+/* Conversa em um lugar só: com o celular escrevendo, o composer dá lugar
+   a "Retomar conversa" e ao switch que desconecta o remoto. */
+.retomar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.retomar[hidden] {
+    display: none;
+}
+
+.retomar-botao {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    flex: 1;
+    min-height: 52px;
+    border: 1px solid var(--marca-border);
+    border-radius: 32px;
+    background: var(--marca-soft);
+    color: var(--marca);
+    font-size: 1.05rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.retomar-botao:hover {
+    background: var(--marca-border);
+}
+
+/* Border beam "pulse-inner" do libraries.dev em port vanilla (o pacote
+   border-beam é React e este app não usa React): brilho interno que gira e
+   respira, paleta "sunset", 6 s por volta, brilho 0.5, raio 32 e sem anel
+   nítido (--beam-stroke-opacity 0). */
+.retomar-botao::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background: conic-gradient(
+        from var(--beam-angulo, 0deg),
+        #ff9f0a 0deg,
+        #ff453a 90deg,
+        #ffd60a 180deg,
+        oklch(69% 0.2 39) 270deg,
+        #ff9f0a 360deg
+    );
+    filter: blur(3px) brightness(0.5) saturate(1.3);
+    -webkit-mask:
+        linear-gradient(#fff, transparent 18px, transparent calc(100% - 18px), #fff),
+        linear-gradient(to right, #fff, transparent 26px, transparent calc(100% - 26px), #fff);
+    -webkit-mask-composite: source-over;
+    mask:
+        linear-gradient(#fff, transparent 18px, transparent calc(100% - 18px), #fff),
+        linear-gradient(to right, #fff, transparent 26px, transparent calc(100% - 26px), #fff);
+    mask-composite: add;
+    animation:
+        beam-gira 6s linear infinite,
+        retomar-respira 3s ease-in-out infinite;
+}
+
+@keyframes retomar-respira {
+    0%,
+    100% {
+        opacity: 0.55;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .retomar-botao::before {
+        animation: none;
+        opacity: 0.7;
+    }
+}
+
+.retomar-switch {
+    position: relative;
+    display: inline-flex;
+    cursor: pointer;
+}
+
+.retomar-switch[hidden] {
+    display: none;
+}
+
+.retomar-switch input {
+    position: absolute;
+    opacity: 0;
+    inset: 0;
+    margin: 0;
+    cursor: pointer;
+}
+
+.retomar-trilho {
+    width: 64px;
+    height: 36px;
+    border-radius: 999px;
+    background: var(--vidro-forte);
+    border: 1px solid var(--borda-vidro);
+    display: flex;
+    align-items: center;
+    padding: 3px;
+    transition: background 0.2s ease;
+}
+
+.retomar-bolinha {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--texto);
+    transition: transform 0.2s ease;
+}
+
+.retomar-switch input:checked + .retomar-trilho {
+    background: var(--perigo);
+    border-color: var(--perigo-border);
+}
+
+.retomar-switch input:checked + .retomar-trilho .retomar-bolinha {
+    transform: translateX(28px);
+}
+
+.retomar-switch input:focus-visible + .retomar-trilho {
+    outline: 2px solid var(--marca);
+    outline-offset: 2px;
+}
+
+.retomar-aviso {
+    margin: 8px 0 0;
+    text-align: center;
+    font-size: 0.8rem;
+    color: var(--texto-3);
+}
+
+.retomar-aviso[hidden] {
+    display: none;
+}
+
+.remote-desconectar {
+    margin-top: 10px;
+    padding: 6px 14px;
+    border: 1px solid var(--perigo-border);
+    border-radius: 999px;
+    background: var(--perigo-soft);
+    color: var(--perigo);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.remote-desconectar[hidden] {
+    display: none;
+}
