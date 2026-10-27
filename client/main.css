@@ -62,15 +62,27 @@
     box-sizing: border-box;
 }
 
-html,
-body {
+html {
     margin: 0;
     padding: 0;
+    width: 100%;
     height: 100%;
+    min-height: calc(100% + env(safe-area-inset-top));
+    height: -webkit-fill-available;
     overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
 }
 
 body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    overflow: hidden;
+    overscroll-behavior: none;
     background: var(--fundo);
     color: var(--texto);
     font-family:
@@ -95,7 +107,8 @@ button {
    ------------------------------------------------------------ */
 .aurora {
     position: fixed;
-    inset: 0;
+    inset: 0 0 auto 0;
+    height: var(--altura-app, 100dvh);
     pointer-events: none;
     z-index: 0;
 }
@@ -160,12 +173,14 @@ button {
    Estrutura principal
    ------------------------------------------------------------ */
 .app {
-    /* position: fixed + inset: 0 em vez de 100vh/100dvh: webapps "Adicionar
-     à Tela de Início" no iOS calculam as unidades de viewport com a altura
-     que o Safari tinha antes da instalação e sobra um vazio no rodapé;
-     ancorado no viewport, o shell preenche a tela inteira em qualquer modo. */
+    /* position: fixed + --altura-app (100dvh no navegador; screen.height no
+     WebClip do iOS via iniciarShellNativo): webapps "Adicionar à Tela de
+     Início" no iOS congelam 100vh/100dvh/bottom:0 com a barra do Safari
+     descontada (~60–72px) e deixariam uma faixa preta no rodapé. */
     position: fixed;
-    inset: 0;
+    inset: 0 0 auto 0;
+    width: 100%;
+    height: var(--altura-app, 100dvh);
     z-index: 1;
     display: grid;
     grid-template-rows:
@@ -173,7 +188,7 @@ button {
             titlebar-area-height,
             calc(var(--topbar-h) + env(safe-area-inset-top))
         )
-        1fr;
+        minmax(0, 1fr);
 }
 
 .app-body {
@@ -274,13 +289,24 @@ button {
     border-radius: 999px;
 }
 .nav-pill {
-    padding: 7px 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    padding: 6px 15px;
+    border: 1px solid transparent;
     border-radius: 999px;
     color: var(--texto-2);
     font-size: 14px;
     transition:
         color var(--duracao-rapida) var(--ease-out),
-        background var(--duracao-rapida) var(--ease-out);
+        background var(--duracao-rapida) var(--ease-out),
+        border-color var(--duracao-rapida) var(--ease-out);
+}
+.topbar-nav .nav-pill svg {
+    width: 15px;
+    height: 15px;
+    flex: none;
 }
 .nav-pill:hover {
     color: var(--texto);
@@ -289,7 +315,6 @@ button {
     color: var(--marca);
     background: var(--marca-soft);
     border: 1px solid var(--marca-border);
-    padding: 6px 15px;
 }
 
 .topbar-direita {
@@ -567,6 +592,8 @@ button {
    ------------------------------------------------------------ */
 .thread-wrap {
     overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
     min-height: 0;
     display: flex;
     flex-direction: column;
@@ -922,7 +949,9 @@ button {
    brilho 1.3, giro de 1.96 s e matiz oscilando ±30deg a cada 12 s, sobre a
    paleta "colorful" oficial de nove paradas. */
 .beam-wrap::before,
-.beam-wrap::after {
+.beam-wrap::after,
+.nav-capsula::before,
+.nav-capsula::after {
     content: "";
     position: absolute;
     inset: -1px;
@@ -942,7 +971,8 @@ button {
     pointer-events: none;
 }
 /* Anel nítido (stroke) */
-.beam-wrap::after {
+.beam-wrap::after,
+.nav-capsula::after {
     background: conic-gradient(
         from var(--beam-angulo, 0deg),
         rgba(255, 255, 255, 0.9) 0deg,
@@ -967,7 +997,8 @@ button {
     mask-composite: exclude;
 }
 /* Brilho interno (inner): paleta girante + fades de borda de 28px */
-.beam-wrap::before {
+.beam-wrap::before,
+.nav-capsula::before {
     background: conic-gradient(
         from var(--beam-angulo, 0deg),
         #fb4934 0deg,
@@ -1051,18 +1082,24 @@ button {
         linear-gradient(#fff 0 0);
     mask-composite: exclude;
 }
-.beam-wrap.beam-ativo::before {
+.beam-wrap.beam-ativo::before,
+.nav-capsula::before {
     opacity: 0.42;
 }
-.beam-wrap.beam-ativo::after {
-    opacity: 0.26;
+.beam-wrap.beam-ativo::after,
+.nav-capsula::after {
+    opacity: 0.34;
 }
-.beam-wrap.beam-ativo .beam-bloom {
+.beam-wrap.beam-ativo .beam-bloom,
+.nav-capsula > .beam-bloom {
     opacity: 0.24;
 }
 .beam-wrap.beam-ativo::before,
 .beam-wrap.beam-ativo::after,
-.beam-wrap.beam-ativo .beam-bloom {
+.beam-wrap.beam-ativo .beam-bloom,
+.nav-capsula::before,
+.nav-capsula::after,
+.nav-capsula > .beam-bloom {
     transition: opacity 0.6s ease;
     animation:
         beam-gira 1.96s linear infinite,
@@ -1095,16 +1132,18 @@ button {
 }
 
 .composer {
+    position: relative;
+    z-index: 1;
     display: flex;
     align-items: center;
     gap: 10px;
     height: 56px;
     padding: 0 8px 0 22px;
     border-radius: 999px;
-    background: oklch(19% 0.008 286 / 0.85);
+    background: oklch(17% 0.008 286 / 0.92);
     border: 1px solid var(--borda-vidro);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
     transition:
         border-color var(--duracao-rapida) var(--ease-out),
         box-shadow var(--duracao-rapida) var(--ease-out);
@@ -1352,6 +1391,8 @@ button {
 
 .pagina-simples {
     overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
     min-height: 0;
     padding: 32px 24px 48px;
 }
@@ -1573,6 +1614,33 @@ button {
 }
 .em-breve .secao-titulo {
     margin: 0 0 8px;
+}
+
+.sondando-orb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: calc(var(--altura-app, 100dvh) - var(--topbar-h) - 210px);
+    padding: 32px 16px;
+}
+.sondando-orb-palco {
+    position: relative;
+    width: 168px;
+    height: 168px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.sondando-orb-halo {
+    position: absolute;
+    inset: -20px;
+    border-radius: 50%;
+    background: radial-gradient(
+        closest-side,
+        color-mix(in srgb, var(--acento, var(--marca)) 22%, transparent),
+        transparent 72%
+    );
+    pointer-events: none;
 }
 
 /* ------------------------------------------------------------
@@ -2034,15 +2102,68 @@ button {
 }
 
 /* Aparelho mobile (classe posta no <head> pela detecção de plataforma):
-   o menu vai para a barra da base. Desktop estreito continua com o menu do
-   topo, que rola na horizontal se faltar espaço. */
+   o menu vai para a barra da base e a casca fica travada como app nativo.
+   Desktop estreito continua com o menu do topo, que rola na horizontal. */
+html.mobile .app {
+    grid-template-rows:
+        calc(var(--topbar-h) + env(safe-area-inset-top))
+        minmax(0, 1fr);
+}
 html.mobile .topbar-nav,
 html.mobile .sidebar,
 html.mobile .contexto {
     display: none;
 }
+html.mobile .topbar {
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
+}
+html.mobile .topbar-logo {
+    min-width: 0;
+}
+html.mobile .topbar-direita {
+    min-width: 0;
+    margin-left: auto;
+}
 html.mobile .app-body {
     grid-template-columns: minmax(0, 1fr);
+}
+html.mobile .thread {
+    padding: 16px 16px 12px;
+    gap: 16px;
+}
+html.mobile .pagina-simples {
+    padding: 20px 16px calc(84px + env(safe-area-inset-bottom));
+}
+/* No mobile a nav-mobile flutua fixa na base com fundo transparente:
+   sem corte horizontal e com o composer descendo até a borda inferior
+   quando a barra recolhe. */
+html.mobile .composer-zona {
+    padding: 6px 14px calc(58px + max(10px, env(safe-area-inset-bottom)));
+    background: none;
+    transition: padding-bottom 320ms var(--ease-out);
+}
+html.mobile body.nav-mobile-oculta .composer-zona,
+html.mobile .app:has(.nav-mobile.oculta) .composer-zona {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+}
+html.mobile .composer {
+    height: 52px;
+    padding: 0 6px 0 16px;
+    gap: 6px;
+}
+/* 16px evita o zoom automático do iOS ao focar no campo de texto. */
+html.mobile .composer input,
+html.mobile .campo-texto {
+    font-size: 16px;
+    min-width: 0;
+    text-overflow: ellipsis;
+}
+html.mobile .topbar,
+html.mobile .nav-mobile,
+html.mobile .composer-zona,
+html.mobile .bloqueio {
+    touch-action: manipulation;
 }
 @media (max-width: 900px) {
     html:not(.mobile) .topbar-nav {
@@ -2057,46 +2178,75 @@ html.mobile .app-body {
 
 /* Nav fixa do mobile: ocupa a faixa em branco da base e mantém
    apenas as duas seções úteis fora do desktop. */
-/* Barra do celular: cápsula flutuante de vidro com um indicador que desliza
-   até o item ativo. O ativo ganha a cor da marca; os outros ficam claros. */
+/* Barra do celular: cápsula flutuante de vidro transparente (somente ícones)
+   com pílula deslizante e auto-hide (surge de baixo para cima ao tocar/mover
+   e recolhe de cima para baixo quando inativa). */
 .nav-mobile {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
     display: none;
     justify-content: center;
-    padding: 10px 16px calc(12px + env(safe-area-inset-bottom));
+    padding: 4px 16px max(10px, env(safe-area-inset-bottom));
+    background: transparent;
+    pointer-events: none;
 }
 .nav-capsula {
     --ativo: 0;
     position: relative;
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    width: min(100%, 360px);
-    padding: 6px;
+    width: min(100%, 248px);
+    padding: 4px;
     border-radius: 999px;
     border: 1px solid rgba(255, 255, 255, 0.14);
     background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.03)),
-        oklch(23% 0.009 286 / 0.82);
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+        rgba(12, 12, 16, 0.28);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.2),
-        0 12px 30px rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(14px) saturate(1.4);
-    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+        inset 0 1px 0 rgba(255, 255, 255, 0.18),
+        0 10px 28px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    pointer-events: auto;
+    transform: translate3d(0, 0, 0);
+    opacity: 1;
+    transition:
+        transform 360ms var(--ease-out),
+        opacity 320ms var(--ease-out);
+    will-change: transform, opacity;
+}
+.nav-mobile.oculta .nav-capsula {
+    transform: translate3d(0, calc(100% + 24px), 0);
+    opacity: 0;
+    pointer-events: none;
+    transition:
+        transform 320ms var(--ease-out),
+        opacity 260ms var(--ease-out);
 }
 .nav-indicador {
     position: absolute;
-    top: 6px;
-    bottom: 6px;
-    left: 6px;
-    width: calc((100% - 12px) / 3);
+    top: 4px;
+    bottom: 4px;
+    left: 4px;
+    width: calc((100% - 8px) / 3);
     border-radius: 999px;
-    background: rgba(10, 8, 6, 0.72);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03)),
+        color-mix(in srgb, var(--marca) 22%, rgba(12, 10, 8, 0.86));
+    border: 1px solid color-mix(in srgb, var(--marca) 48%, rgba(255, 255, 255, 0.16));
     box-shadow:
-        inset 0 2px 7px rgba(0, 0, 0, 0.65),
-        0 0 0 1px rgba(255, 255, 255, 0.05);
-    transform: translateX(calc(var(--ativo) * 100%));
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 4px 12px rgba(0, 0, 0, 0.45),
+        0 0 14px color-mix(in srgb, var(--marca) 22%, transparent);
+    transform: translate3d(calc(var(--ativo) * 100%), 0, 0);
+    will-change: transform;
+    pointer-events: none;
 }
 .nav-capsula.animavel .nav-indicador {
-    transition: transform 300ms var(--ease-out);
+    transition: transform 280ms var(--ease-out);
 }
 .nav-capsula.sem-ativo .nav-indicador {
     opacity: 0;
@@ -2105,37 +2255,51 @@ html.mobile .app-body {
     position: relative;
     z-index: 1;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
     min-width: 0;
-    min-height: 62px;
-    padding: 9px 4px;
+    min-height: 40px;
+    height: 40px;
+    padding: 0;
     border: 0;
     border-radius: 999px;
     background: none;
-    color: var(--texto);
-    font-size: 12px;
-    font-weight: 600;
-    transition: color 220ms var(--ease-out);
+    color: var(--texto-2);
+    transition:
+        color 220ms var(--ease-out),
+        transform 160ms var(--ease-out);
+}
+.nav-mobile .nav-pill span {
+    display: none;
 }
 .nav-mobile .nav-pill svg {
-    width: 26px;
-    height: 26px;
+    width: 21px;
+    height: 21px;
     flex: none;
+    transition: transform 240ms var(--ease-out);
 }
 .nav-mobile .nav-pill.ativa {
     background: none;
     border: 0;
     color: var(--marca);
 }
+.nav-mobile .nav-pill.ativa svg {
+    transform: scale(1.08);
+}
 .nav-mobile .nav-pill:active {
-    transform: scale(0.96);
+    transform: scale(0.94);
 }
 @media (prefers-reduced-motion: reduce) {
-    .nav-capsula.animavel .nav-indicador {
+    .nav-capsula,
+    .nav-mobile.oculta .nav-capsula,
+    .nav-capsula::before,
+    .nav-capsula::after,
+    .nav-capsula > .beam-bloom,
+    .nav-capsula.animavel .nav-indicador,
+    .nav-mobile .nav-pill svg,
+    html.mobile .composer-zona {
         transition: none;
+        animation: none !important;
     }
 }
 
@@ -2535,19 +2699,31 @@ html.mobile {
     --perigo: #f38ba8;
     --info: #89b4fa;
     --raio-card: 28px;
-    --topbar-h: 78px;
+    --topbar-h: 56px;
     --perigo-soft: rgba(243, 139, 168, 0.15);
     --perigo-border: rgba(243, 139, 168, 0.35);
     --sucesso-soft: rgba(166, 227, 161, 0.15);
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+}
+html.mobile .msg-agente .corpo,
+html.mobile .msg-usuario .bolha,
+html.mobile input,
+html.mobile textarea {
+    -webkit-user-select: text;
+    user-select: text;
 }
 
 /* Cor por seção, modo e backend: cada item leva um acento da paleta.
    O ativo pinta com o acento; o resto segue a marca. */
 .nav-pill[data-secao="monitor"] { --acento: var(--gb-verde); }
+.nav-pill[data-secao="atalhos"] { --acento: var(--gb-verde); }
 .nav-pill[data-secao="assistente"] { --acento: var(--marca); }
 .nav-pill[data-secao="status"] { --acento: var(--gb-azul); }
 .nav-pill[data-secao="ajustes"] { --acento: var(--gb-roxo); }
-.nav-pill.ativa {
+.topbar-nav .nav-pill.ativa {
     color: var(--acento);
     background: color-mix(in srgb, var(--acento) 15%, transparent);
     border: 1px solid color-mix(in srgb, var(--acento) 40%, transparent);
@@ -3124,7 +3300,8 @@ button.cena-tecla:active {
    nada do app por trás. */
 .bloqueio {
     position: fixed;
-    inset: 0;
+    inset: 0 0 auto 0;
+    height: var(--altura-app, 100dvh);
     z-index: 900;
     display: grid;
     place-items: center;
@@ -3364,4 +3541,58 @@ button.cena-tecla:active {
 
 .remote-desconectar[hidden] {
     display: none;
+}
+
+/* ------------------------------------------------------------
+   Puxar para recarregar (pull-to-refresh) com ThinkingOrb
+   ------------------------------------------------------------ */
+.puxar-recarregar {
+    --puxar-y: 0px;
+    --puxar-progresso: 0;
+    position: fixed;
+    top: calc(env(safe-area-inset-top) + 12px);
+    left: 50%;
+    z-index: 800;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px 8px 10px;
+    border-radius: 999px;
+    background: var(--vidro-forte);
+    border: 1px solid var(--borda-vidro);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+    opacity: var(--puxar-progresso);
+    transform: translate3d(-50%, calc(var(--puxar-y) - 24px), 0)
+        scale(calc(0.86 + 0.14 * var(--puxar-progresso)));
+    transition:
+        opacity var(--duracao-rapida) var(--ease-out),
+        border-color var(--duracao-rapida) var(--ease-out);
+}
+.puxar-recarregar.pronto {
+    border-color: var(--marca-border);
+    box-shadow:
+        0 0 18px oklch(69% 0.2 39 / 0.25),
+        0 12px 28px rgba(0, 0, 0, 0.45);
+}
+.puxar-recarregar.recarregando {
+    transition:
+        transform var(--duracao-media) var(--ease-out),
+        opacity var(--duracao-rapida) var(--ease-out),
+        border-color var(--duracao-rapida) var(--ease-out);
+}
+.puxar-rotulo {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--texto-2);
+    white-space: nowrap;
+}
+.puxar-recarregar.pronto .puxar-rotulo {
+    color: var(--marca);
+}
+@media (prefers-reduced-motion: reduce) {
+    .puxar-recarregar {
+        transform: translate3d(-50%, 16px, 0);
+        transition: none;
+    }
 }

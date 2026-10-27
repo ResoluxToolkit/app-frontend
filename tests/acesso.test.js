@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import { afterEach, describe, it } from 'node:test';
 
-import { acessoPainel, hostLocal, sondarBackend } from '../imports/api/index.js';
+import { esquecerToken } from '../imports/api/acesso.js';
+import {
+  acessoPainel,
+  concluirPareamentoDaUrl,
+  estadoPareamento,
+  hostLocal,
+  sondarBackend,
+} from '../imports/api/index.js';
 
 const fetchOriginal = globalThis.fetch;
 
@@ -52,5 +59,22 @@ describe('trava do painel', () => {
     });
     await sondarBackend({ hostname: 'localhost' });
     assert.equal(acessoPainel.get(), 'liberado');
+  });
+
+  it('celular abre URL com ?p=, pareia e libera o painel; 401 posterior trava de novo', async () => {
+    responder({
+      '/api/v1/pareamento': { corpo: { token: 'tok-123' } },
+      '/api/v1/health': { corpo: { status: 'online' } },
+      '/api/v1/session': { corpo: { mode: 'timeline' } },
+      '/api/v1/tools': { corpo: { tools: [] } },
+    });
+    await concluirPareamentoDaUrl({ search: '?p=codigo-valido' });
+    assert.equal(estadoPareamento.get(), 'pareado');
+    await sondarBackend({ hostname: '192.168.0.100' });
+    assert.equal(acessoPainel.get(), 'liberado');
+
+    esquecerToken();
+    assert.equal(estadoPareamento.get(), 'nenhum');
+    assert.equal(acessoPainel.get(), 'sem_pareamento');
   });
 });

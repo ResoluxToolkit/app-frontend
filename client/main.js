@@ -15,6 +15,7 @@ import {
   adicionarMensagem,
   atualizarMensagem,
   resetarConversa,
+  definirConversa,
   incorporarTurnos,
   zoomGrade,
   ajustarZoom,
@@ -29,7 +30,8 @@ import { aplicarOrdem, proximoTamanho, resolverAtalho, sanitizarAtalho } from '.
 import { secaoDaPlataforma } from '../imports/ui/plataforma';
 import { desenharQr, gerarMatrizQr, segundosRestantes, urlPareamento, urlRemota } from '../imports/ui/remoto';
 import { juntarDitado, reconhecedorDisponivel } from '../imports/ui/ditado';
-import { precisaInstrucaoInstalacao } from '../imports/ui/pwa';
+import { iniciarShellNativo, precisaInstrucaoInstalacao } from '../imports/ui/pwa';
+import { iniciarPuxarRecarregar } from '../imports/ui/puxarRecarregar';
 import { instalacaoVista, marcarInstalacaoVista } from '../imports/ui/persistencia';
 import { iniciarPreloader } from '../imports/ui/preloader';
 import { estadoArena, mensagemArena } from '../imports/ui/estadoArena';
@@ -78,6 +80,7 @@ import {
 } from '../imports/ui/dashboard';
 import { avaliarSaude } from '../imports/ui/saude';
 import { veredito, grupoRecolhivel } from '../imports/ui/widgets';
+import { iniciarAutoHideNav } from '../imports/ui/autoHideNav';
 
 const ROTULOS_SECAO = {
   quickplay: 'Quick Play',
@@ -139,10 +142,15 @@ function posicionarIndicadorMobile() {
   if (!capsula) return;
   const botoes = [...capsula.querySelectorAll('.nav-pill')];
   const indice = botoes.findIndex((botao) => botao.dataset.secao === secaoAtiva.get());
-  capsula.style.setProperty('--ativo', String(Math.max(indice, 0)));
+  const ativo = Math.max(indice, 0);
+  capsula.style.setProperty('--ativo', String(ativo));
+  const indicador = capsula.querySelector('.nav-indicador');
+  if (indicador) {
+    indicador.style.transform = `translate3d(${ativo * 100}%, 0, 0)`;
+  }
   capsula.classList.toggle('sem-ativo', indice < 0);
   if (!capsula.classList.contains('animavel')) {
-    void capsula.offsetWidth;
+    void (indicador || capsula).offsetWidth;
     capsula.classList.add('animavel');
   }
 }
@@ -160,10 +168,12 @@ function atualizarVisao() {
   }
   el('app-body').classList.toggle('app-body-simples', secao !== 'assistente');
 
-  // Composição e Atalhos leem o mesmo poll da grade.
-  if (SECOES_GRADE.has(secao)) iniciarMonitor();
+  // Composição, Atalhos e Status só abrem canal com o motor depois que o
+  // painel está liberado (evita WS/SSE sem o token que veio no ?p=).
+  const liberado = acessoPainel.get() === 'liberado';
+  if (liberado && SECOES_GRADE.has(secao)) iniciarMonitor();
   if (secao === 'atalhos') renderAtalhosDeck();
-  if (secao === 'status') iniciarStatus();
+  if (liberado && secao === 'status') iniciarStatus();
   if (secao === 'ajustes') renderAjustes();
 }
 
@@ -294,10 +304,23 @@ function renderBloqueio() {
   if (!caixa) return;
   const acesso = acessoPainel.get();
   caixa.hidden = acesso === 'liberado' || acesso === 'verificando';
-  if (caixa.hidden) return;
+  if (caixa.hidden) {
+    if (leitorAoVivo) {
+      leitorAoVivo.parar();
+      leitorAoVivo = null;
+    }
+    return;
+  }
   if (acesso === 'motor_fora') {
+    if (leitorAoVivo) {
+      leitorAoVivo.parar();
+      leitorAoVivo = null;
+    }
     el('bloqueio-titulo').textContent = 'O Mac não está respondendo';
     el('bloqueio-texto').textContent = 'Confira se o Resolux está aberto no Mac e recarregue esta página.';
+    el('bloqueio-aovivo').hidden = true;
+    el('bloqueio-ler').hidden = true;
+    el('bloqueio-video').hidden = true;
     return;
   }
   el('bloqueio-titulo').textContent = 'Este aparelho não está pareado';
@@ -338,24 +361,41 @@ async function concluirLeitura(texto) {
     renderBloqueio();
     return;
   }
+  leituraFalhou = '';
   rastro('QR do Resolux lido');
   if (await parearComCodigo(codigo)) sondarBackend();
 }
 
 async function abrirLeitorAoVivo() {
+  if (leitorAoVivo) return;
   leituraFalhou = '';
   rastro('abrindo a câmera ao vivo');
+  const ctrl = new AbortController();
+  const sessao = { parar: () => ctrl.abort() };
+  leitorAoVivo = sessao;
+  renderBloqueio();
   try {
-    leitorAoVivo = { parar() {} };
-    renderBloqueio();
-    leitorAoVivo = await lerQrAoVivo(el('bloqueio-camera-video'), (texto) => {
-      leitorAoVivo = null;
-      renderBloqueio();
-      concluirLeitura(texto);
-    });
+    const instancia = await lerQrAoVivo(
+      el('bloqueio-camera-video'),
+      (texto) => {
+        if (leitorAoVivo === sessao) leitorAoVivo = null;
+        renderBloqueio();
+        concluirLeitura(texto);
+      },
+      { signal: ctrl.signal },
+    );
+    if (ctrl.signal.aborted || leitorAoVivo !== sessao) {
+      instancia.parar();
+      return;
+    }
+    sessao.parar = () => {
+      ctrl.abort();
+      instancia.parar();
+    };
     rastro('procurando o QR no vídeo');
   } catch (e) {
-    leitorAoVivo = null;
+    if (ctrl.signal.aborted) return;
+    if (leitorAoVivo === sessao) leitorAoVivo = null;
     rastro(`câmera ao vivo falhou: ${e?.name || ''} ${e?.message || e}`);
     leituraFalhou =
       e?.name === 'NotAllowedError'
@@ -578,8 +618,9 @@ function atualizarTrabalho() {
 
 function atualizarComposer() {
   const ativo = processando.get();
-  el('beam-wrap').classList.toggle('beam-ativo', ativo);
-  el('composer-form').classList.toggle('focado', focado.get());
+  const emFoco = focado.get();
+  el('beam-wrap').classList.toggle('beam-ativo', ativo || emFoco);
+  el('composer-form').classList.toggle('focado', emFoco);
   el('composer-espera').hidden = !ativo;
   el('composer-ativo').hidden = ativo;
   el('rotulo-processando').textContent = rotuloProcessando.get();
@@ -833,10 +874,18 @@ function gradeCardHtml(grade, status) {
     </section>`;
 }
 
+function orbSondandoHtml(rotulo) {
+  return `<div class="sondando-orb" role="status" aria-label="${escaparHtml(rotulo)}"><div class="sondando-orb-palco" aria-hidden="true"><span class="sondando-orb-halo"></span><canvas class="orb-canvas sondando-orb-canvas" data-orb="searching" data-orb-tamanho="64" data-orb-display="128" width="128" height="128"></canvas></div></div>`;
+}
+
 // Sem grade: o que o monitor do sistema diz sobre o Arena (aberto?
 // Webserver ligado? em que porta?), com o erro do motor por baixo.
 function cardArena(erro) {
-  const { titulo, texto } = mensagemArena(estadoArena(contratoSistema.get()));
+  const estado = estadoArena(contratoSistema.get());
+  if (estado.fonte === 'nenhuma' && !erro) {
+    return orbSondandoHtml('Sondando o Arena…');
+  }
+  const { titulo, texto } = mensagemArena(estado);
   const detalhe = erro ? `<p class="nota-mock">Motor: ${escaparHtml(erro)}</p>` : '';
   return `<div class="em-breve vidro"><div class="secao-titulo">${escaparHtml(titulo)}</div><p>${escaparHtml(texto)}</p>${detalhe}</div>`;
 }
@@ -851,9 +900,14 @@ function renderMonitor() {
   pill.className = `pill-status ${status === 'ok' ? 'pill-sucesso' : status === 'erro' ? 'pill-alerta' : ''}`;
 
   if (!grade) {
-    el('monitor-conteudo').innerHTML = backendAtivo.get() === 'mock' || erro?.startsWith('motor_indisponivel')
-      ? '<div class="em-breve vidro"><div class="secao-titulo">Motor fora do ar</div><p>Sem o motor Resolux não há composição do Arena para mostrar. Abra o Resolux no Mac e recarregue.</p></div>'
-      : cardArena(erro);
+    if (backendAtivo.get() === 'sondando') {
+      el('monitor-conteudo').innerHTML = orbSondandoHtml('Sondando o Arena…');
+    } else if (backendAtivo.get() === 'mock' || erro?.startsWith('motor_indisponivel')) {
+      el('monitor-conteudo').innerHTML = '<div class="em-breve vidro"><div class="secao-titulo">Motor fora do ar</div><p>Sem o motor Resolux não há composição do Arena para mostrar. Abra o Resolux no Mac e recarregue.</p></div>';
+    } else {
+      el('monitor-conteudo').innerHTML = cardArena(erro);
+    }
+    iniciarOrbs();
     return;
   }
 
@@ -966,14 +1020,19 @@ function renderAtalhosDeck() {
       : '';
     return `<li class="tam-${atalho.tamanho}" data-ordem="${id}"><button type="button" class="${classes.join(' ')}" style="--cena: ${COR_ATALHO[atalho.cor]}" data-atalho-id="${id}" data-atalho-acao="${acao}" aria-label="${rotulo}">${selo}<span class="cena-icone">${ICONE_CENA}</span><span class="cena-nome">${rotulo}</span></button>${controles}</li>`;
   }).join('');
-  const novo = `<li><button type="button" class="cena-tecla atalho-novo" data-atalho-acao="novo" aria-label="Novo atalho"><span class="cena-icone">${ICONE_MAIS}</span><span class="cena-nome">Novo</span></button></li>`;
+  const novo = modoEdicaoAtalhos
+    ? `<li><button type="button" class="cena-tecla atalho-novo" data-atalho-acao="novo" aria-label="Novo atalho"><span class="cena-icone">${ICONE_MAIS}</span><span class="cena-nome">Novo</span></button></li>`
+    : '';
+  const avisoVazio = modoEdicaoAtalhos
+    ? 'Nenhum atalho ainda. Toque em Novo e digite o nome de uma coluna do Resolume.'
+    : 'Nenhum atalho ainda. Toque em Editar para adicionar uma coluna do Resolume.';
   deck.innerHTML = `
     <section class="atalhos-solto">
       <div class="atalhos-barra">
         <button type="button" class="pill-status atalho-editar" data-atalho-acao="alternar-edicao">${modoEdicaoAtalhos ? 'Concluir' : 'Editar'}</button>
       </div>
       <ul class="cenas-grade bento${modoEdicaoAtalhos ? ' editando' : ''}">${teclas}${novo}</ul>
-      ${atalhos.get().length === 0 ? '<p class="atalhos-aviso">Nenhum atalho ainda. Toque em Novo e digite o nome de uma coluna do Resolume.</p>' : ''}
+      ${atalhos.get().length === 0 ? `<p class="atalhos-aviso">${avisoVazio}</p>` : ''}
       ${avisoAtalho ? `<p class="atalhos-aviso" role="status">${escaparHtml(avisoAtalho)}</p>` : ''}
     </section>`;
   const gradeDepois = deck.querySelector('.cenas-grade');
@@ -1006,7 +1065,6 @@ function abrirFormAtalho(id) {
       </div>
     </form>`;
   el('atalho-form').scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  el('atalho-form').elements.rotulo.focus({ preventScroll: true });
 }
 
 function fecharFormAtalho() {
@@ -1214,7 +1272,7 @@ function renderStatus() {
   if (!contrato) {
     definirStatusConteudo(erro
       ? `<div class="aviso-erro vidro" role="alert"><strong>Feed do motor:</strong> ${escaparHtml(erro)}</div>`
-      : '<div class="em-breve vidro"><div class="secao-titulo">Sondando o motor…</div><p>Primeiro sample ainda não voltou. O motor só coleta com alguém olhando.</p></div>');
+      : orbSondandoHtml('Sondando o motor…'));
     return;
   }
 
@@ -1387,13 +1445,16 @@ let controleSimulado = null;
 async function sincronizarConversaRemota() {
   if (backendAtivo.get() === 'sondando') return;
   inscricaoConversa?.cancelar();
+  inscricaoConversa = null;
+  controleSimulado?.cancelar();
+  controleSimulado = null;
+  if (backendAtivo.get() === 'daemon' && acessoPainel.get() !== 'liberado') return;
   inscricaoConversa = obterBackend().assinarConversa({
     onTurnos: (turnos) => incorporarTurnos(turnos),
     onControle: (payload) => aplicarControle(payload),
     assumirAoConectar: souRemoto(),
   });
   // Simulação: o controle vem do mock, a conversa segue do motor real.
-  controleSimulado?.cancelar();
   controleSimulado = simulandoRemoto()
     ? backendDoControle().assinarConversa({ onControle: (payload) => aplicarControle(payload) })
     : null;
@@ -1582,6 +1643,15 @@ function registrarAssinaturas() {
   el('btn-retomar').addEventListener('click', () => (controleSimulado || inscricaoConversa)?.assumir());
   el('switch-remoto').addEventListener('change', aoTrocarSwitchRemoto);
   el('remoto-desconectar')?.addEventListener('click', desconectarCelular);
+  acessoPainel.assinar((acesso) => {
+    sincronizarConversaRemota();
+    if (acesso === 'liberado') {
+      atualizarVisao();
+    } else {
+      pararMonitor();
+      pararStatus();
+    }
+  });
   mensagens.assinar(renderMensagens);
   mensagens.assinar(renderConversas);
   backendAtivo.assinar(renderConversas);
@@ -1630,6 +1700,13 @@ registrarEventos();
 aplicarHashInicial();
 registrarAssinaturas();
 iniciarRemoto();
+iniciarShellNativo();
+iniciarAutoHideNav({ navEl: el('nav-mobile') });
+iniciarPuxarRecarregar({
+  indicador: el('puxar-recarregar'),
+  orbCanvas: el('puxar-orb'),
+  rotuloEl: el('puxar-rotulo'),
+});
 iniciarControlesJanela();
 atualizarTopbar();
 atualizarVisao();

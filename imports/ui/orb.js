@@ -61,20 +61,30 @@ class OrbManager {
           ? canvas.dataset.orb
           : 'breathing';
         const tamanho = parseInt(canvas.dataset.orbTamanho || '20', 10);
+        const display =
+          parseInt(canvas.dataset.orbDisplay || String(tamanho), 10) || tamanho;
         const atual = this.orbs.get(canvas);
 
-        if (atual && atual.estado === estado && atual.tamanho === tamanho) return;
+        if (
+          atual &&
+          atual.estado === estado &&
+          atual.tamanho === tamanho &&
+          atual.display === display
+        ) {
+          return;
+        }
 
         const preset = resolvePreset(estado, tamanho);
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        canvas.width = tamanho * dpr;
-        canvas.height = tamanho * dpr;
-        canvas.style.width = `${tamanho}px`;
-        canvas.style.height = `${tamanho}px`;
+        const escala = (display / tamanho) * dpr;
+        canvas.width = Math.round(display * dpr);
+        canvas.height = Math.round(display * dpr);
+        canvas.style.width = `${display}px`;
+        canvas.style.height = `${display}px`;
         const ctx = canvas.getContext('2d');
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.setTransform(escala, 0, 0, escala, 0, 0);
 
-        this.orbs.set(canvas, { estado, tamanho, preset, ctx });
+        this.orbs.set(canvas, { estado, tamanho, display, preset, ctx });
         this.pintar(canvas, performance.now());
       } catch (erro) {
         // Um canvas com tamanho sem preset não pode derrubar o boot.
