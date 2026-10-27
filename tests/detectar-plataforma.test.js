@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import vm from 'node:vm';
 
+import { calcularAlturaStandalone } from '../imports/ui/pwa.js';
+
 // Roda o script inline do <head> de verdade, com navegador falso.
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const codigo = html.match(/<script id="detectar-plataforma">([\s\S]*?)<\/script>/)[1];
@@ -48,5 +50,45 @@ describe('detecção de plataforma pelo aparelho', () => {
   it('sem matchMedia cai na largura', () => {
     assert.equal(detectar({ userAgent: 'x', semMatchMedia: true, largura: 400 }), true);
     assert.equal(detectar({ userAgent: 'x', semMatchMedia: true, largura: 1440 }), false);
+  });
+});
+
+describe('altura do shell no PWA instalado (Tela de Início)', () => {
+  it('estica até a altura física da tela quando o iOS desconta a barra do Safari', () => {
+    assert.equal(
+      calcularAlturaStandalone({
+        navigator: { standalone: true },
+        innerWidth: 393,
+        innerHeight: 792,
+        screen: { width: 393, height: 852 },
+        visualViewport: { height: 792 },
+      }),
+      '852px',
+    );
+  });
+
+  it('acompanha o visualViewport quando o teclado virtual sobe', () => {
+    assert.equal(
+      calcularAlturaStandalone({
+        navigator: { standalone: true },
+        innerWidth: 393,
+        innerHeight: 792,
+        screen: { width: 393, height: 852 },
+        visualViewport: { height: 500 },
+      }),
+      '500px',
+    );
+  });
+
+  it('fora do modo standalone devolve vazio para o CSS usar 100dvh', () => {
+    assert.equal(
+      calcularAlturaStandalone({
+        navigator: { standalone: false },
+        innerWidth: 393,
+        innerHeight: 792,
+        screen: { width: 393, height: 852 },
+      }),
+      '',
+    );
   });
 });

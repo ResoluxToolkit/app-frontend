@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 
 import jsQR from 'jsqr';
 
-import { abertoComoApp, aplicarCanal, extrairCodigo, podeLerAoVivo, recortesCandidatos } from '../imports/ui/leitorQr.js';
+import { abertoComoApp, aplicarCanal, extrairCodigo, lerQrAoVivo, podeLerAoVivo, recortesCandidatos } from '../imports/ui/leitorQr.js';
 import { gerarMatrizQr, urlPareamento } from '../imports/ui/remoto.js';
 
 // Desenha a matriz como o painel: módulos laranja sobre fundo escuro.
@@ -73,5 +73,33 @@ describe('leitura ao vivo', () => {
     assert.equal(podeLerAoVivo({ isSecureContext: true, navigator: camera }), true);
     assert.equal(podeLerAoVivo({ isSecureContext: false, navigator: camera }), false);
     assert.equal(podeLerAoVivo({ isSecureContext: true, navigator: {} }), false);
+  });
+
+  it('desliga as trilhas da câmera se for cancelado enquanto getUserMedia ainda abre', async () => {
+    const navOriginal = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+    let trilhaParada = false;
+    const ctrl = new AbortController();
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: {
+        mediaDevices: {
+          getUserMedia: async () => {
+            // Usuário cancela enquanto a câmera está abrindo.
+            ctrl.abort();
+            return {
+              getTracks: () => [{ stop: () => { trilhaParada = true; } }],
+            };
+          },
+        },
+      },
+    });
+    try {
+      const video = { srcObject: 'anterior' };
+      await lerQrAoVivo(video, () => {}, { signal: ctrl.signal });
+      assert.equal(trilhaParada, true);
+      assert.equal(video.srcObject, null);
+    } finally {
+      if (navOriginal) Object.defineProperty(globalThis, 'navigator', navOriginal);
+    }
   });
 });

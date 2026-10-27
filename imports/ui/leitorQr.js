@@ -156,28 +156,43 @@ const LADO_QUADRO = 640;
 // Abre a câmera traseira no <video> e procura o QR quadro a quadro,
 // alternando o canal laranja e o original. `aoAchar(texto)` recebe o
 // primeiro QR lido; a câmera é desligada logo depois. Devolve
-// `{ parar() }` para o botão Cancelar.
-export async function lerQrAoVivo(video, aoAchar) {
+// `{ parar() }` para o botão Cancelar (e aceita `signal` para abortar
+// mesmo enquanto `getUserMedia` ou `video.play()` ainda estão abrindo).
+export async function lerQrAoVivo(video, aoAchar, { signal } = {}) {
   const { default: jsQR } = await import('jsqr');
+  if (signal?.aborted) return { parar() {} };
   const fluxo = await navigator.mediaDevices.getUserMedia({
     video: { facingMode: { ideal: 'environment' } },
     audio: false,
   });
   let ativo = true;
   let quadro = 0;
-  const canvas = document.createElement('canvas');
-  const contexto = canvas.getContext('2d', { willReadFrequently: true });
 
   const parar = () => {
     ativo = false;
     for (const trilha of fluxo.getTracks()) trilha.stop();
-    video.srcObject = null;
+    if (video) video.srcObject = null;
   };
+
+  if (signal?.aborted) {
+    parar();
+    return { parar };
+  }
+  signal?.addEventListener('abort', parar, { once: true });
+
+  const canvas = document.createElement('canvas');
+  const contexto = canvas.getContext('2d', { willReadFrequently: true });
 
   video.setAttribute('playsinline', '');
   video.muted = true;
   video.srcObject = fluxo;
-  await video.play();
+  try {
+    await video.play();
+  } catch (e) {
+    parar();
+    throw e;
+  }
+  if (!ativo) return { parar };
 
   const analisar = () => {
     if (!ativo) return;
